@@ -13,3 +13,8 @@ variables used by main as global variables, That is they are moved out of the su
 As a consequence they should have global scope that is they exist even when the main that
 is now a subroutine is terminated. Thus they are accessible from Python via to be written 
 get and set functions.
+
+
+## Test
+
+Running `test_fm2d.py` from within the test direcrory will succesfully execute fmm.
