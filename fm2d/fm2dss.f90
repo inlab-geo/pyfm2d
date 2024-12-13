@@ -1622,9 +1622,18 @@ END MODULE traveltime
 
 
 MODULE fmm
+USE globalp
 IMPLICIT NONE
-CONTAINS
 
+! JRH TODO
+! scx and scz are the source location they previously were read inside fmmi2d
+! by placing them outside the subroutine they become global variables to the fmm
+! module that can be set and get before calling fmmin2d and thus no longer need to 
+! be read from a file inside fmmind2d. The idea is to create a subroutine to read 
+! them from a file and a suborutine to set and get them from python.
+REAL(KIND=i10), DIMENSION (:), ALLOCATABLE :: scx,scz
+
+CONTAINS
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! MAIN PROGRAM
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1648,7 +1657,6 @@ INTEGER :: i,j,k,l,nsrc,wttf,fsrt,wrgf,cfd,tnr,urg
 INTEGER :: sgs,isx,isz,sw,idm1,idm2,nnxb,nnzb
 INTEGER :: ogx,ogz,grdfx,grdfz,maxbt
 REAL(KIND=i10) :: x,z,goxb,gozb,dnxb,dnzb
-REAL(KIND=i10), DIMENSION (:), ALLOCATABLE :: scx,scz
 !
 ! sources = File containing source locations
 ! receivers = File containing receiver locations
@@ -1714,6 +1722,13 @@ CALL gridder(grid)
 !
 ! Read in all source coordinates.
 !
+
+! JRH TODO
+! Whit scx and scz now variables defined at the module level they can be read, set and get
+! outside the subroutine so the reading from the file can be made a seperate function and
+! ultimately replace with a set and get function to be called from python
+!
+
 Open(UNIT=10,FILE=sources,STATUS='old')
 READ(10,*)nsrc
 ALLOCATE(scx(nsrc),scz(nsrc), STAT=checkstat)
