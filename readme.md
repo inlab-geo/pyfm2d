@@ -2,9 +2,8 @@
 ## Installation
 
 ```
-pip install git+https://github.com/inlab-geo/pyfm2d
+pip install git+https://github.com/inlab-geo/pyfm2dss
 ```
-
 
 ## Wrapping Strategy
 
@@ -14,7 +13,14 @@ As a consequence they should have global scope that is they exist even when the 
 is now a subroutine is terminated. Thus they are accessible from Python via to be written 
 get and set functions.
 
+This has now been completed for the source file. 
 
-## Test
+## Tests
 
-Running `test_fm2d.py` from within the test direcrory will succesfully execute fmm.
+Running `test_fmmin2d.py` from within the test directory will run the orignal program 
+turned into a subroutine that can be called from python like the fmm executable it reads 
+the files from disk
+
+Running `test_sources.py` illustrate how for the reorganised `fmm2dss.f90` we now can
+read the sources from disk by providing a file name, set them from python and get 
+them back from an fmm instance.

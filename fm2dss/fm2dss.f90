@@ -1642,7 +1642,7 @@ REAL(KIND=i10), DIMENSION (:), ALLOCATABLE :: scx,scz
 CONTAINS
 
 
-subroutine read_sources(fn_ptr,fn_ptr_length)bind(c,name="read_sourcesf")
+subroutine read_sources(fn_ptr,fn_ptr_length)bind(c,name="read_sources")
     type(c_ptr), value::  fn_ptr
     integer(c_int),value :: fn_ptr_length
     character(len=fn_ptr_length,kind=c_char), pointer :: fn_str
@@ -1663,35 +1663,472 @@ subroutine read_sources(fn_ptr,fn_ptr_length)bind(c,name="read_sourcesf")
        scz(i)=scz(i)*pi/180.0
     end do
     close(10)
+
 end subroutine read_sources
 
-subroutine set_sources(scx_,scz_,nsrc_)
+subroutine set_sources(scx_,scz_,nsrc_)bind(c,name="set_sources")
       integer(kind=c_int), intent (in) :: nsrc_
       real(c_float), intent(in) :: scx_(nsrc_),scz_(nsrc_)
+      integer i
        nsrc=nsrc_
-        if (allocated(scx)) then
+     if (allocated(scx)) then
         deallocate(scx)
         deallocate(scz)
-    end if
-      allocate(scx(nsrc),scz(nsrc))
-      scx=scx_
-      scz=scz_
+     end if
+       allocate(scx(nsrc),scz(nsrc))
+      
+    do i=1,nsrc
+      scx(i)=(90.0-scx_(i))*pi/180.0
+      scz(i)=scz_(i)*pi/180.0
+    end do      
 end subroutine set_sources
 
-subroutine get_sources(scx_,scz_,nsrc_)
+subroutine get_number_of_sources(nsrc_)bind(c,name="get_number_of_sources")
+      integer(kind=c_int), intent (out) :: nsrc_
+      nsrc_=nsrc
+end subroutine get_number_of_sources
+
+subroutine get_sources(scx_,scz_,nsrc_)bind(c,name="get_sources")
       integer(kind=c_int), intent (inout) :: nsrc_
       real(c_float), intent(inout) :: scx_(nsrc_),scz_(nsrc_)
       integer i
       nsrc_=nsrc
-
     do i=1,nsrc
-
-      scx_(i)=scx(i)
-      scz_(i)=scz(i)
-
+      scx_(i)=90-scx(i)/pi*180.0
+      scz_(i)=scz(i)/pi*180.0
     end do
 end subroutine get_sources
 
+SUBROUTINE run() bind(c,name="run")
+USE globalp
+USE traveltime
+IMPLICIT NONE
+CHARACTER (LEN=30) :: sources,receivers,grid,frechet
+CHARACTER (LEN=30) :: travelt,rtravel,wrays,otimes,cdum
+INTEGER :: i,j,k,l,wttf,fsrt,wrgf,cfd,tnr,urg
+INTEGER :: sgs,isx,isz,sw,idm1,idm2,nnxb,nnzb
+INTEGER :: ogx,ogz,grdfx,grdfz,maxbt
+REAL(KIND=i10) :: x,z,goxb,gozb,dnxb,dnzb
+!
+! sources = File containing source locations
+! receivers = File containing receiver locations
+! grid = File containing grid of velocity vertices for
+!        resampling on a finer grid with cubic B-splines
+! frechet = output file containing matrix of frechet derivatives
+! travelt = File name for storage of traveltime field
+! wttf = Write traveltimes to file? (0=no,>0=source id)
+! fom = Use first-order(0) or mixed-order(1) scheme
+! nsrc = number of sources
+! scx,scz = source location in r,x,z
+! x,z = temporary variables for source location
+! fsrt = find source-receiver traveltimes? (0=no,1=yes)
+! rtravel = output file for source-receiver traveltimes
+! cdum = dummy character variable
+! wrgf = write ray geometries to file? (<0=all,0=no,>0=source id.)
+! wrays = file containing raypath geometries
+! cfd = calculate Frechet derivatives? (0=no, 1=yes)
+! tnr = total number of receivers
+! sgs = Extent of refined source grid
+! isx,isz = cell containing source
+! nnxb,nnzb = Backup for nnz,nnx
+! goxb,gozb = Backup for gox,goz
+! dnxb,dnzb = Backup for dnx,dnz
+! ogx,ogz = Location of refined grid origin
+! gridfx,grdfz = Number of refined nodes per cell
+! urg = use refined grid (0=no,1=yes,2=previously used)
+! maxbt = maximum size of narrow band binary tree
+! otimes = file containing source-receiver association information
+!
+
+OPEN(UNIT=10,FILE='fm2dss.in',STATUS='old')
+READ(10,1)cdum
+READ(10,1)cdum
+READ(10,1)cdum
+READ(10,1)sources
+READ(10,1)receivers
+READ(10,1)otimes
+READ(10,1)grid
+READ(10,*)gdx,gdz
+READ(10,*)asgr
+READ(10,*)sgdl,sgs
+READ(10,*)earth
+READ(10,*)fom
+READ(10,*)snb
+READ(10,1)cdum
+READ(10,1)cdum
+READ(10,1)cdum
+READ(10,*)fsrt
+READ(10,1)rtravel
+READ(10,*)cfd
+READ(10,1)frechet
+READ(10,*)wttf
+READ(10,1)travelt
+READ(10,*)wrgf
+READ(10,1)wrays
+1   FORMAT(a30)
+CLOSE(10)
+!
+! Call a subroutine which reads in the velocity grid
+!
+CALL gridder(grid)
+!
+! Read in all source coordinates.
+!
+
+! JRH TODO
+! Whit scx and scz now variables defined at the module level they can be read, set and get
+! outside the subroutine so the reading from the file can be made a seperate function and
+! ultimately replace with a set and get function to be called from python
+!
+
+!Open(UNIT=10,FILE=sources,STATUS='old')
+!READ(10,*)nsrc
+!ALLOCATE(scx(nsrc),scz(nsrc), STAT=checkstat)
+!IF(checkstat > 0)THEN
+!   WRITE(6,*)'Error with ALLOCATE: PROGRAM fmmin2d: REAL scx,scz'
+!ENDIF
+!DO i=1,nsrc
+!   READ(10,*)scx(i),scz(i)
+!
+!  Convert source coordinates in degrees to radians
+!
+!   scx(i)=(90.0-scx(i))*pi/180.0
+!   scz(i)=scz(i)*pi/180.0
+!ENDDO
+!CLOSE(10)
+!
+! Read in all receiver coordinates if required
+!
+IF(fsrt.eq.1)THEN
+   OPEN(UNIT=10,FILE=receivers,status='old')
+   READ(10,*)nrc
+   ALLOCATE(rcx(nrc),rcz(nrc), STAT=checkstat)
+   IF(checkstat > 0)THEN
+      WRITE(6,*)'Error with ALLOCATE: PROGRAM fmmin2d: REAL rcx,rcz'
+   ENDIF
+   DO i=1,nrc
+      READ(10,*)rcx(i),rcz(i)
+!
+!     Convert receiver coordinates in degrees to radians
+!
+      rcx(i)=(90.0-rcx(i))*pi/180.0
+      rcz(i)=rcz(i)*pi/180.0
+   ENDDO
+   CLOSE(10)
+ELSE
+   OPEN(UNIT=10,FILE=receivers,status='old')
+   READ(10,*)nrc
+   CLOSE(10)
+ENDIF
+!
+! Read in source-receiver associations
+!
+OPEN(UNIT=10,FILE=otimes,status='old')
+ALLOCATE(srs(nrc,nsrc), STAT=checkstat)
+IF(checkstat > 0)THEN
+   WRITE(6,*)'Error with ALLOCATE: PROGRAM fmmin2d: REAL srs'
+ENDIF
+DO i=1,nsrc
+   DO j=1,nrc
+      READ(10,*)srs(j,i)
+   ENDDO
+ENDDO
+CLOSE(10)
+!
+! Now work out, source by source, the first-arrival traveltime
+! field plus source-receiver traveltimes
+! and ray paths if required. First, allocate memory to the
+! traveltime field array
+!
+ALLOCATE(ttn(nnz,nnx), STAT=checkstat)
+IF(checkstat > 0)THEN
+   WRITE(6,*)'Error with ALLOCATE: PROGRAM fmmin2d: REAL ttn'
+ENDIF
+!
+! Open file for source-receiver traveltime output if required.
+!
+IF(fsrt.eq.1)THEN
+   OPEN(UNIT=10,FILE=rtravel,STATUS='unknown')
+ENDIF
+!
+! Open file for ray path output if required
+!
+IF(wrgf.NE.0)THEN
+   !OPEN(UNIT=40,FILE=wrays,FORM='unformatted',STATUS='unknown')
+   OPEN(UNIT=40,FILE=wrays,STATUS='unknown')
+   IF(wrgf.GT.0)THEN
+      tnr=nrc
+   ELSE
+      tnr=nsrc*nrc
+   ENDIF
+   WRITE(40,*)tnr
+   rbint=0
+ENDIF
+!
+! Open file for Frechet derivative output if required.
+!
+IF(cfd.EQ.1)THEN
+   ! OPEN(UNIT=50,FILE=frechet,FORM='unformatted',STATUS='unknown')
+   OPEN(UNIT=50,FILE=frechet,STATUS='unknown')
+ENDIF
+!
+! Allocate memory for node status and binary trees
+!
+ALLOCATE(nsts(nnz,nnx))
+maxbt=NINT(snb*nnx*nnz)
+ALLOCATE(btg(maxbt))
+!
+! Loop through all sources and find traveltime fields
+!
+DO i=1,nsrc
+   x=scx(i)
+   z=scz(i)
+!
+!  Begin by computing refined source grid if required
+!
+   urg=0
+   IF(asgr.EQ.1)THEN
+!
+!     Back up coarse velocity grid to a holding matrix
+!
+      IF(i.EQ.1)ALLOCATE(velnb(nnz,nnx))
+      velnb=veln
+      nnxb=nnx
+      nnzb=nnz
+      dnxb=dnx
+      dnzb=dnz
+      goxb=gox
+      gozb=goz
+!
+!     Identify nearest neighbouring node to source
+!
+      isx=INT((x-gox)/dnx)+1
+      isz=INT((z-goz)/dnz)+1
+      sw=0
+      IF(isx.lt.1.or.isx.gt.nnx)sw=1
+      IF(isz.lt.1.or.isz.gt.nnz)sw=1
+      IF(sw.eq.1)then
+         isx=90.0-isx*180.0/pi
+         isz=isz*180.0/pi
+         WRITE(6,*)"Source lies outside bounds of model (lat,long)= ",isx,isz
+         WRITE(6,*)"TERMINATING PROGRAM!!!"
+         STOP
+      ENDIF
+      IF(isx.eq.nnx)isx=isx-1
+      IF(isz.eq.nnz)isz=isz-1
+!
+!     Now find rectangular box that extends outward from the nearest source node
+!     to "sgs" nodes away.
+!
+      vnl=isx-sgs
+      IF(vnl.lt.1)vnl=1
+      vnr=isx+sgs
+      IF(vnr.gt.nnx)vnr=nnx
+      vnt=isz-sgs
+      IF(vnt.lt.1)vnt=1
+      vnb=isz+sgs
+      IF(vnb.gt.nnz)vnb=nnz
+      nrnx=(vnr-vnl)*sgdl+1
+      nrnz=(vnb-vnt)*sgdl+1
+      drnx=dvx/REAL(gdx*sgdl)
+      drnz=dvz/REAL(gdz*sgdl)
+      gorx=gox+dnx*(vnl-1)
+      gorz=goz+dnz*(vnt-1)
+      nnx=nrnx
+      nnz=nrnz
+      dnx=drnx
+      dnz=drnz
+      gox=gorx
+      goz=gorz
+!
+!     Reallocate velocity and traveltime arrays if nnx>nnxb or
+!     nnz<nnzb.
+!
+      IF(nnx.GT.nnxb.OR.nnz.GT.nnzb)THEN
+         idm1=nnx
+         IF(nnxb.GT.idm1)idm1=nnxb
+         idm2=nnz
+         IF(nnzb.GT.idm2)idm2=nnzb
+         DEALLOCATE(veln,ttn,nsts,btg)
+         ALLOCATE(veln(idm2,idm1))
+         ALLOCATE(ttn(idm2,idm1))
+         ALLOCATE(nsts(idm2,idm1))
+         maxbt=NINT(snb*idm1*idm2)
+         ALLOCATE(btg(maxbt))
+      ENDIF
+!
+!     Call a subroutine to compute values of refined velocity nodes
+!
+      CALL bsplrefine
+!
+!     Compute first-arrival traveltime field through refined grid.
+!
+      urg=1
+      CALL travel(x,z,urg)
+!
+!     Now map refined grid onto coarse grid.
+!
+      ALLOCATE(ttnr(nnzb,nnxb))
+      ALLOCATE(nstsr(nnzb,nnxb))
+      IF(nnx.GT.nnxb.OR.nnz.GT.nnzb)THEN
+         idm1=nnx
+         IF(nnxb.GT.idm1)idm1=nnxb
+         idm2=nnz
+         IF(nnzb.GT.idm2)idm2=nnzb
+         DEALLOCATE(ttnr,nstsr)
+         ALLOCATE(ttnr(idm2,idm1))
+         ALLOCATE(nstsr(idm2,idm1))
+      ENDIF
+      ttnr=ttn
+      nstsr=nsts
+      ogx=vnl
+      ogz=vnt
+      grdfx=sgdl
+      grdfz=sgdl
+      nsts=-1
+      DO k=1,nnz,grdfz
+         idm1=ogz+(k-1)/grdfz
+         DO l=1,nnx,grdfx
+            idm2=ogx+(l-1)/grdfx
+            nsts(idm1,idm2)=nstsr(k,l)
+            IF(nsts(idm1,idm2).GE.0)THEN
+               ttn(idm1,idm2)=ttnr(k,l)
+            ENDIF
+         ENDDO
+      ENDDO
+!
+!     Backup refined grid information
+!
+      nnxr=nnx
+      nnzr=nnz
+      goxr=gox
+      gozr=goz
+      dnxr=dnx
+      dnzr=dnz
+!
+!     Restore remaining values.
+!
+      nnx=nnxb
+      nnz=nnzb
+      dnx=dnxb
+      dnz=dnzb
+      gox=goxb
+      goz=gozb
+      DO j=1,nnx
+         DO k=1,nnz 
+            veln(k,j)=velnb(k,j)
+         ENDDO
+      ENDDO
+!
+!     Ensure that the narrow band is complete; if
+!     not, then some alive points will need to be
+!     made close.
+!
+      DO k=1,nnx
+         DO l=1,nnz
+            IF(nsts(l,k).EQ.0)THEN
+               IF(l-1.GE.1)THEN
+                  IF(nsts(l-1,k).EQ.-1)nsts(l,k)=1
+               ENDIF
+               IF(l+1.LE.nnz)THEN
+                  IF(nsts(l+1,k).EQ.-1)nsts(l,k)=1
+               ENDIF
+               IF(k-1.GE.1)THEN
+                  IF(nsts(l,k-1).EQ.-1)nsts(l,k)=1
+               ENDIF
+               IF(k+1.LE.nnx)THEN
+                  IF(nsts(l,k+1).EQ.-1)nsts(l,k)=1
+               ENDIF
+            ENDIF
+         ENDDO
+      ENDDO
+!
+!     Finally, call routine for computing traveltimes once
+!     again.
+!
+      urg=2
+      CALL travel(x,z,urg)
+   ELSE
+!
+!     Call a subroutine that works out the first-arrival traveltime
+!     field.
+!
+      CALL travel(x,z,urg)
+   ENDIF
+!
+!  Find source-receiver traveltimes if required
+!
+   IF(fsrt.eq.1)THEN
+      CALL srtimes(x,z,i)
+   ENDIF
+!
+!  Calculate raypath geometries and write to file if required.
+!  Calculate Frechet derivatives with the same subroutine
+!  if required.
+!
+   IF(wrgf.eq.i.OR.wrgf.LT.0.OR.cfd.EQ.1)THEN
+      CALL rpaths(wrgf,i,cfd,x,z)
+   ENDIF
+!
+!  If required, write traveltime field to file
+!
+   IF(wttf.eq.i)THEN
+      !OPEN(UNIT=30,FILE=travelt,FORM='unformatted',STATUS='unknown')
+      OPEN(UNIT=30,FILE=travelt,STATUS='unknown')
+      WRITE(30,*)goxd,gozd
+      WRITE(30,*)nnx,nnz
+      WRITE(30,*)dnxd,dnzd
+      DO j=1,nnz
+         DO k=1,nnx
+            WRITE(30,*)ttn(j,k)
+         ENDDO
+      ENDDO
+      CLOSE(30)
+   ENDIF
+   IF(asgr.EQ.1)DEALLOCATE(ttnr,nstsr)
+ENDDO
+!
+! Close rtravel if required
+!
+IF(fsrt.eq.1)THEN
+   CLOSE(10)
+ENDIF
+IF(cfd.EQ.1)THEN
+   CLOSE(50)
+ENDIF
+IF(wrgf.NE.0)THEN
+!
+!  Notify about ray-boundary intersections if required.
+!
+   IF(rbint.EQ.1)THEN
+      WRITE(6,*)'Note that at least one two-point ray path'
+      WRITE(6,*)'tracked along the boundary of the model.'
+      WRITE(6,*)'This class of path is unlikely to be'
+      WRITE(6,*)'a true path, and it is STRONGLY RECOMMENDED'
+      WRITE(6,*)'that you adjust the dimensions of your grid'
+      WRITE(6,*)'to prevent this from occurring.'
+   ENDIF
+   CLOSE(40)
+ENDIF
+IF(asgr.EQ.1)THEN
+   DEALLOCATE (velnb, STAT=checkstat)
+   IF(checkstat > 0)THEN
+      WRITE(6,*)'Error with DEALLOCATE: PROGRAM fmmin2d: velnb'
+   ENDIF
+ENDIF
+IF(fsrt.eq.1)THEN
+   DEALLOCATE (rcx,rcz, STAT=checkstat)
+   IF(checkstat > 0)THEN
+      WRITE(6,*)'Error with DEALLOCATE: PROGRAM fmmin2d: rcx,rcz'
+   ENDIF
+ENDIF
+DEALLOCATE (veln,ttn,scx,scz,nsts,btg,srs, STAT=checkstat)
+IF(checkstat > 0)THEN
+   WRITE(6,*)'Error with DEALLOCATE: PROGRAM fmmin2d: final deallocate'
+ENDIF
+WRITE(6,*)'Program fm2dss has finished successfully!'
+STOP
+END SUBROUTINE run
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! MAIN PROGRAM
