@@ -1622,6 +1622,7 @@ END MODULE traveltime
 
 
 MODULE fmm
+use iso_c_binding
 USE globalp
 IMPLICIT NONE
 
@@ -1631,9 +1632,67 @@ IMPLICIT NONE
 ! module that can be set and get before calling fmmin2d and thus no longer need to 
 ! be read from a file inside fmmind2d. The idea is to create a subroutine to read 
 ! them from a file and a suborutine to set and get them from python.
+
+
+
+! variables holding the sources
+INTEGER :: nsrc
 REAL(KIND=i10), DIMENSION (:), ALLOCATABLE :: scx,scz
 
 CONTAINS
+
+
+subroutine read_sources(fn_ptr,fn_ptr_length)bind(c,name="read_sourcesf")
+    type(c_ptr), value::  fn_ptr
+    integer(c_int),value :: fn_ptr_length
+    character(len=fn_ptr_length,kind=c_char), pointer :: fn_str
+    integer i
+    if (allocated(scx)) then
+        deallocate(scx)
+        deallocate(scz)
+    end if
+
+    call c_f_pointer(fn_ptr, fn_str)
+    open(unit=10,file=fn_str,status='old')
+    read(10,*)nsrc
+    allocate(scx(nsrc),scz(nsrc))
+    do i=1,nsrc
+       read(10,*)scx(i),scz(i)
+    !  Convert source coordinates in degrees to radians
+       scx(i)=(90.0-scx(i))*pi/180.0
+       scz(i)=scz(i)*pi/180.0
+    end do
+    close(10)
+end subroutine read_sources
+
+subroutine set_sources(scx_,scz_,nsrc_)
+      integer(kind=c_int), intent (in) :: nsrc_
+      real(c_float), intent(in) :: scx_(nsrc_),scz_(nsrc_)
+       nsrc=nsrc_
+        if (allocated(scx)) then
+        deallocate(scx)
+        deallocate(scz)
+    end if
+      allocate(scx(nsrc),scz(nsrc))
+      scx=scx_
+      scz=scz_
+end subroutine set_sources
+
+subroutine get_sources(scx_,scz_,nsrc_)
+      integer(kind=c_int), intent (inout) :: nsrc_
+      real(c_float), intent(inout) :: scx_(nsrc_),scz_(nsrc_)
+      integer i
+      nsrc_=nsrc
+
+    do i=1,nsrc
+
+      scx_(i)=scx(i)
+      scz_(i)=scz(i)
+
+    end do
+end subroutine get_sources
+
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! MAIN PROGRAM
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1653,7 +1712,7 @@ USE traveltime
 IMPLICIT NONE
 CHARACTER (LEN=30) :: sources,receivers,grid,frechet
 CHARACTER (LEN=30) :: travelt,rtravel,wrays,otimes,cdum
-INTEGER :: i,j,k,l,nsrc,wttf,fsrt,wrgf,cfd,tnr,urg
+INTEGER :: i,j,k,l,wttf,fsrt,wrgf,cfd,tnr,urg
 INTEGER :: sgs,isx,isz,sw,idm1,idm2,nnxb,nnzb
 INTEGER :: ogx,ogz,grdfx,grdfz,maxbt
 REAL(KIND=i10) :: x,z,goxb,gozb,dnxb,dnzb

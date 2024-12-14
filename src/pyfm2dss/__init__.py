@@ -1,4 +1,4 @@
-from ._pyfm2d import FastMarchingMethod
+from ._pyfm2dss import FastMarchingMethod
 
 __all__ = [
         "FastMarchingMethod"
