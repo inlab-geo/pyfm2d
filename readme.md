@@ -13,7 +13,8 @@ As a consequence they should have global scope that is they exist even when the 
 is now a subroutine is terminated. Thus they are accessible from Python via to be written 
 get and set functions.
 
-This has now been completed for the source file. 
+This has now been completed for the  file specifying the source location tpyically called 
+`sources.dat`. 
 
 ## Tests
 
