@@ -1746,6 +1746,51 @@ CONTAINS
       end do
    end subroutine get_receivers
 
+   subroutine read_source_receiver_associations(fn_ptr, fn_ptr_length) bind(c, name="read_source_receiver_associations")
+      type(c_ptr), value::  fn_ptr
+      integer(c_int), value :: fn_ptr_length
+      character(len=fn_ptr_length, kind=c_char), pointer :: fn_str
+      integer i,j
+      if (allocated(srs)) then
+         deallocate (srs)
+      end if
+      allocate(srs(nsrc,nrc))
+      call c_f_pointer(fn_ptr, fn_str)
+      open (unit=10, file=fn_str, status='old')
+       DO i = 1, nsrc
+         DO j = 1, nrc
+            READ (10, *) srs(j, i)
+         END DO
+      END DO
+     close (10)
+   end subroutine read_source_receiver_associations
+
+   subroutine set_source_receiver_associations(srs_) bind(c, name="set_source_receiver_associations")
+      real(c_float), intent(in) :: srs_(nsrc,nrc)
+      integer i,j
+      if (allocated(srs)) then
+         deallocate (srs)
+      end if
+      allocate(srs(nsrc,nrc))
+       DO i = 1, nsrc
+         DO j = 1, nrc
+    		srs(i,j)=srs_(i,j)
+    		end do
+      end do
+   end subroutine set_source_receiver_associations
+
+   subroutine get_source_receiver_associations(srs_) bind(c, name="get_source_receiver_associations")
+      real(c_float), intent(inout) :: srs_(nsrc,nrc)
+      integer i,j
+       DO i = 1, nsrc
+         DO j = 1, nrc
+    		srs_(i,j)=srs(i,j)
+    		end do
+      end do
+   end subroutine get_source_receiver_associations
+
+
+
    SUBROUTINE run() bind(c, name="run")
       USE globalp
       USE traveltime
@@ -1870,18 +1915,18 @@ CONTAINS
 !
 ! Read in source-receiver associations
 !
-
-      OPEN (UNIT=10, FILE=otimes, status='old')
-      ALLOCATE (srs(nrc, nsrc), STAT=checkstat)
-      IF (checkstat > 0) THEN
-         WRITE (6, *) 'Error with ALLOCATE: PROGRAM fmmin2d: REAL srs'
-      END IF
-      DO i = 1, nsrc
-         DO j = 1, nrc
-            READ (10, *) srs(j, i)
-         END DO
-      END DO
-      CLOSE (10)
+!
+!      OPEN (UNIT=10, FILE=otimes, status='old')
+!      ALLOCATE (srs(nrc, nsrc), STAT=checkstat)
+!      IF (checkstat > 0) THEN
+!         WRITE (6, *) 'Error with ALLOCATE: PROGRAM fmmin2d: REAL srs'
+!      END IF
+!      DO i = 1, nsrc
+!         DO j = 1, nrc
+!            READ (10, *) srs(j, i)
+!         END DO
+!      END DO
+!      CLOSE (10)
 !
 ! Now work out, source by source, the first-arrival traveltime
 ! field plus source-receiver traveltimes
