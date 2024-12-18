@@ -1040,6 +1040,9 @@ CONTAINS
       END DO
    END SUBROUTINE srtimes
 
+
+
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! TYPE: SUBROUTINE
 ! CODE: FORTRAN 90
@@ -1640,182 +1643,23 @@ MODULE fmm
 
 	integer sgs
     integer fsrt, cfd, wttf, wrgf
+    
+    ! variables holding the results
+    integer(c_int) :: nttimes
+	real(c_float),allocatable :: ttimes(:)
+	integer(c_int),allocatable :: tids(:)
+
+	integer(c_int) :: frechet_nnz
+	integer(c_int),allocatable :: frechet_irow(:),frechet_icol(:)
+	real(c_float),allocatable :: frechet_val(:)
+
+	integer(c_int) :: npaths,npts
+	integer(c_int),allocatable :: nppts(:)
+	real(c_float),allocatable :: paths(:,:,:)
+	
+	real(c_float),allocatable :: tfield(:,:,:)
 
 CONTAINS
-
-
-	subroutine read_solver_options(fn_ptr, fn_ptr_length) bind(c, name="read_configuration")
-
-      type(c_ptr), value::  fn_ptr
-      integer(c_int), value :: fn_ptr_length
-      character(len=fn_ptr_length, kind=c_char), pointer :: fn_str
-         CHARACTER(LEN=30) cdum
-   	  call c_f_pointer(fn_ptr, fn_str)
-
-      OPEN (UNIT=10, FILE=fn_str, STATUS='old')
-      READ (10, 1) cdum
-      READ (10, 1) cdum
-      READ (10, 1) cdum
-      READ (10, 1) cdum
-      READ (10, 1) cdum
-      READ (10, 1) cdum
-      READ (10, 1) cdum
-      READ (10, *) gdx, gdz
-      READ (10, *) asgr
-      READ (10, *) sgdl, sgs
-      READ (10, *) earth
-      READ (10, *) fom
-      READ (10, *) snb
-      READ (10, 1) cdum
-      READ (10, 1) cdum
-      READ (10, 1) cdum
-      READ (10, *) fsrt
-     READ (10, 1) cdum ! READ (10, 1) rtravel
-      READ (10, *) cfd
-     READ (10, 1) cdum ! READ (10, 1) frechet
-      READ (10, *) wttf
-     READ (10, 1) cdum ! READ (10, 1) travelt
-      READ (10, *) wrgf
-     READ (10, 1) cdum ! READ (10, 1) wrays
-      CLOSE (10)
-1     FORMAT(a30)
-      end subroutine read_solver_options
-   
-   
-   subroutine set_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_,fsrt_, cfd_, wttf_, wrgf_) bind(c, name="set_solver_options")
-       integer(c_int) gdx_,gdz_,asgr_,sgdl_,sgs_
-       real(c_float) earth_
-       integer(c_int) fom_,snb_
-       integer fsrt_, cfd_, wttf_, wrgf_
-       
-       gdx=gdx_
-       gdz=gdz_
-       asgr=asgr_
-       sgdl=sgdl_
-       sgs=sgs_
-       earth=earth_
-       fom=fom_
-       snb=snb_     
-    fsrt=fsrt_
-    cfd=cfd_
-    wttf=wttf_
-    wrgf=wrgf_
-       
-    end subroutine set_solver_options
-
-   subroutine get_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_,fsrt_,cfd_,wttf_, wrgf_) bind(c, name="get_solver_options")
-       integer(c_int) gdx_,gdz_,asgr_,sgdl_,sgs_
-       real(c_float) earth_
-       integer(c_int) fom_,snb_
-        integer fsrt_, cfd_, wttf_, wrgf_
-       gdx_=gdx
-       gdz_=gdz
-       asgr_=asgr
-       sgdl_=sgdl
-       sgs_=sgs
-       earth_=earth
-       fom_=fom
-       snb_=snb
-        fsrt_=fsrt_
-    cfd_=cfd
-    wttf_=wttf
-    wrgf_=wrgf
-    end subroutine get_solver_options
-
-
-   subroutine read_velocity_model(fn_ptr, fn_ptr_length) bind(c, name="read_velocity_model")
-      type(c_ptr), value::  fn_ptr
-      integer(c_int), value :: fn_ptr_length
-      character(len=fn_ptr_length, kind=c_char), pointer :: fn_str
-      integer i, j
-      if (allocated(velv)) then
-         deallocate (velv)
-      end if
-      if (allocated(veln)) then
-          deallocate(veln)
-      end if
-      
-      call c_f_pointer(fn_ptr, fn_str)
-      open (unit=10, file=fn_str, status='old')
-      READ (10, *) nvx, nvz
-      READ (10, *) goxd, gozd
-      READ (10, *) dvxd, dvzd
-      ALLOCATE (velv(0:nvz + 1, 0:nvx + 1), STAT=checkstat)
-      IF (checkstat > 0) THEN
-         WRITE (6, *) 'Error with ALLOCATE: SUBROUTINE gridder: REAL velv'
-      END IF
-      DO i = 0, nvz + 1
-         DO j = 0, nvx + 1
-            READ (10, *) velv(i, j)
-         END DO
-      END DO
-      CLOSE (10)
-        
-      call gridder2()
-   end subroutine read_velocity_model
-
-   subroutine set_velocity_model(nvx_, nvz_, goxd_, gozd_, dvxd_, dvzd_, velv_) bind(c, name="set_velocity_model")
-      integer nvx_, nvz_
-      real goxd_, gozd_
-      real dvxd_, dvzd_
-      real(c_float) velv_(nvx_ + 1, nvz_ + 1)
-
-      integer i, j
-
-      nvx = nvx_
-      nvz = nvz_
-      goxd = goxd_
-      gozd = gozd_
-      dvxd = dvxd_
-      dvzd = dvzd_
-
-      if (allocated(velv)) then
-         deallocate (velv)
-      end if
-      
-      if (allocated(veln)) then
-      	deallocate(veln)
-      end if
-      
-      allocate (velv(0:nvz + 1, 0:nvx + 1), STAT=checkstat)
-
-      do i = 0, nvz + 1
-         do j = 0, nvx + 1
-            velv(i, j) = velv_(i, j)
-         end do
-      end do
-      
-      call gridder2()
-   
-   end subroutine set_velocity_model
-
-   subroutine get_number_of_velocity_model_vertices(nvx_,nvz_) bind(c, name="get_number_of_velocity_model_vertices")
-	integer nvx_,nvz_
-	nvx_=nvx
-	nvz_=nvz
-   end subroutine get_number_of_velocity_model_vertices
-
-   subroutine get_velocity_model(nvx_, nvz_, goxd_, gozd_, dvxd_, dvzd_, velv_) bind(c, name="get_velocity_model")
-      integer nvx_, nvz_
-      real goxd_, gozd_
-      real dvxd_, dvzd_
-      real(c_float) velv_(nvx_ + 1, nvz_ + 1)
-      integer i, j
-
-      nvx_ = nvx
-      nvz_ = nvz
-      goxd_ = goxd
-      gozd_ = gozd
-      dvxd_ = dvxd
-      dvzd_ = dvzd
-
-      do i = 0, nvz + 1
-         do j = 0, nvx + 1
-            velv_(i, j) = velv(i, j)
-         end do
-      end do
-      
-   end subroutine get_velocity_model
 
    SUBROUTINE gridder2()
       IMPLICIT NONE
@@ -1928,6 +1772,299 @@ CONTAINS
       
       
    END SUBROUTINE gridder2
+
+   SUBROUTINE srtimes2(scx, scz, csid)
+      USE globalp
+      IMPLICIT NONE
+      INTEGER :: i, k, l, irx, irz, sw, isx, isz, csid
+      INTEGER, PARAMETER :: noray = 0, yesray = 1
+      INTEGER, PARAMETER :: i5 = SELECTED_REAL_KIND(5, 10)
+      REAL(KIND=i5) :: trr
+      REAL(KIND=i5), PARAMETER :: norayt = 0.0
+      REAL(KIND=i10) :: drx, drz, produ, scx, scz
+      REAL(KIND=i10) :: sred, dpl, rd1, vels, velr
+      REAL(KIND=i10), DIMENSION(2, 2) :: vss
+!
+! irx,irz = Coordinates of cell containing receiver
+! trr = traveltime value at receiver
+! produ = dummy multiplier
+! drx,drz = receiver distance from (i,j,k) grid node
+! scx,scz = source coordinates
+! isx,isz = source cell location
+! sred = Distance from source to receiver
+! dpl = Minimum path length in source neighbourhood.
+! vels,velr = velocity at source and receiver
+! vss = velocity at four grid points about source or receiver.
+! csid = current source ID
+! noray = switch to indicate no ray present
+! norayt = default value given to null ray
+! yesray = switch to indicate that ray is present
+!
+! Determine source-receiver traveltimes one at a time.
+!
+
+      DO i = 1, nrc
+         IF (srs(i, csid) .EQ. 0) THEN
+         	nttimes=nttimes+1
+         	ttimes(nttimes)=norayt
+         	tids(nttimes)=noray
+            WRITE (10, *) noray, norayt
+            CYCLE
+         END IF
+!
+!  The first step is to locate the receiver in the grid.
+!
+         irx = INT((rcx(i) - gox)/dnx) + 1
+         irz = INT((rcz(i) - goz)/dnz) + 1
+         sw = 0
+         IF (irx .lt. 1 .or. irx .gt. nnx) sw = 1
+         IF (irz .lt. 1 .or. irz .gt. nnz) sw = 1
+         IF (sw .eq. 1) then
+            irx = 90.0 - irx*180.0/pi
+            irz = irz*180.0/pi
+            WRITE (6, *) "Receiver lies outside model (lat,long)= ", irx, irz
+            WRITE (6, *) "TERMINATING PROGRAM!!!!"
+            STOP
+         END IF
+         IF (irx .eq. nnx) irx = irx - 1
+         IF (irz .eq. nnz) irz = irz - 1
+!
+!  Location of receiver successfully found within the grid. Now approximate
+!  traveltime at receiver using bilinear interpolation from four
+!  surrounding grid points. Note that bilinear interpolation is a poor
+!  approximation when traveltime gradient varies significantly across a cell,
+!  particularly near the source. Thus, we use an improved approximation in this
+!  case. First, locate current source cell.
+!
+         isx = INT((scx - gox)/dnx) + 1
+         isz = INT((scz - goz)/dnz) + 1
+         dpl = dnx*earth
+         rd1 = dnz*earth*SIN(gox)
+         IF (rd1 .LT. dpl) dpl = rd1
+         rd1 = dnz*earth*SIN(gox + (nnx - 1)*dnx)
+         IF (rd1 .LT. dpl) dpl = rd1
+         sred = ((scx - rcx(i))*earth)**2
+         sred = sred + ((scz - rcz(i))*earth*SIN(rcx(i)))**2
+         sred = SQRT(sred)
+         IF (sred .LT. dpl) sw = 1
+         IF (isx .EQ. irx) THEN
+            IF (isz .EQ. irz) sw = 1
+         END IF
+         IF (sw .EQ. 1) THEN
+!
+!     Compute velocity at source and receiver
+!
+            DO k = 1, 2
+               DO l = 1, 2
+                  vss(k, l) = veln(isz - 1 + l, isx - 1 + k)
+               END DO
+            END DO
+            drx = (scx - gox) - (isx - 1)*dnx
+            drz = (scz - goz) - (isz - 1)*dnz
+            CALL bilinear(vss, drx, drz, vels)
+            DO k = 1, 2
+               DO l = 1, 2
+                  vss(k, l) = veln(irz - 1 + l, irx - 1 + k)
+               END DO
+            END DO
+            drx = (rcx(i) - gox) - (irx - 1)*dnx
+            drz = (rcz(i) - goz) - (irz - 1)*dnz
+            CALL bilinear(vss, drx, drz, velr)
+            trr = 2.0*sred/(vels + velr)
+         ELSE
+            drx = (rcx(i) - gox) - (irx - 1)*dnx
+            drz = (rcz(i) - goz) - (irz - 1)*dnz
+            trr = 0.0
+            DO k = 1, 2
+               DO l = 1, 2
+                  produ = (1.0 - ABS(((l - 1)*dnz - drz)/dnz))*(1.0 - ABS(((k - 1)*dnx - drx)/dnx))
+                  trr = trr + ttn(irz - 1 + l, irx - 1 + k)*produ
+               END DO
+            END DO
+         END IF
+
+         WRITE (10, *) yesray, trr
+            
+            nttimes=nttimes+1
+         	ttimes(nttimes)=trr
+         	tids(nttimes)=yesray
+      END DO
+   END SUBROUTINE srtimes2
+
+
+	subroutine read_solver_options(fn_ptr, fn_ptr_length) bind(c, name="read_configuration")
+
+      type(c_ptr), value::  fn_ptr
+      integer(c_int), value :: fn_ptr_length
+      character(len=fn_ptr_length, kind=c_char), pointer :: fn_str
+         CHARACTER(LEN=30) cdum
+   	  call c_f_pointer(fn_ptr, fn_str)
+
+      OPEN (UNIT=10, FILE=fn_str, STATUS='old')
+      READ (10, 1) cdum
+      READ (10, 1) cdum
+      READ (10, 1) cdum
+      READ (10, 1) cdum
+      READ (10, 1) cdum
+      READ (10, 1) cdum
+      READ (10, 1) cdum
+      READ (10, *) gdx, gdz
+      READ (10, *) asgr
+      READ (10, *) sgdl, sgs
+      READ (10, *) earth
+      READ (10, *) fom
+      READ (10, *) snb
+      READ (10, 1) cdum
+      READ (10, 1) cdum
+      READ (10, 1) cdum
+      READ (10, *) fsrt
+     READ (10, 1) cdum ! READ (10, 1) rtravel
+      READ (10, *) cfd
+     READ (10, 1) cdum ! READ (10, 1) frechet
+      READ (10, *) wttf
+     READ (10, 1) cdum ! READ (10, 1) travelt
+      READ (10, *) wrgf
+     READ (10, 1) cdum ! READ (10, 1) wrays
+      CLOSE (10)
+1     FORMAT(a30)
+      end subroutine read_solver_options
+   
+   
+   subroutine set_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_,fsrt_, cfd_, wttf_, wrgf_) bind(c, name="set_solver_options")
+       integer(c_int) gdx_,gdz_,asgr_,sgdl_,sgs_
+       real(c_float) earth_
+       integer(c_int) fom_,snb_
+       integer fsrt_, cfd_, wttf_, wrgf_
+       
+       gdx=gdx_
+       gdz=gdz_
+       asgr=asgr_
+       sgdl=sgdl_
+       sgs=sgs_
+       earth=earth_
+       fom=fom_
+       snb=snb_     
+    fsrt=fsrt_
+    cfd=cfd_
+    wttf=wttf_
+    wrgf=wrgf_
+       
+    end subroutine set_solver_options
+
+   subroutine get_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_,fsrt_,cfd_,wttf_, wrgf_) bind(c, name="get_solver_options")
+       integer(c_int) gdx_,gdz_,asgr_,sgdl_,sgs_
+       real(c_float) earth_
+       integer(c_int) fom_,snb_
+        integer fsrt_, cfd_, wttf_, wrgf_
+       gdx_=gdx
+       gdz_=gdz
+       asgr_=asgr
+       sgdl_=sgdl
+       sgs_=sgs
+       earth_=earth
+       fom_=fom
+       snb_=snb
+        fsrt_=fsrt
+    cfd_=cfd
+    wttf_=wttf
+    wrgf_=wrgf
+    end subroutine get_solver_options
+
+
+   subroutine read_velocity_model(fn_ptr, fn_ptr_length) bind(c, name="read_velocity_model")
+      type(c_ptr), value::  fn_ptr
+      integer(c_int), value :: fn_ptr_length
+      character(len=fn_ptr_length, kind=c_char), pointer :: fn_str
+      integer i, j
+      if (allocated(velv)) then
+         deallocate (velv)
+      end if
+      if (allocated(veln)) then
+          deallocate(veln)
+      end if
+      
+      call c_f_pointer(fn_ptr, fn_str)
+      open (unit=10, file=fn_str, status='old')
+      READ (10, *) nvx, nvz
+      READ (10, *) goxd, gozd
+      READ (10, *) dvxd, dvzd
+      ALLOCATE (velv(0:nvz + 1, 0:nvx + 1), STAT=checkstat)
+      IF (checkstat > 0) THEN
+         WRITE (6, *) 'Error with ALLOCATE: SUBROUTINE gridder: REAL velv'
+      END IF
+      DO i = 0, nvz + 1
+         DO j = 0, nvx + 1
+            READ (10, *) velv(i, j)
+         END DO
+      END DO
+      CLOSE (10)
+        
+      call gridder2()
+   end subroutine read_velocity_model
+
+   subroutine set_velocity_model(nvx_, nvz_, goxd_, gozd_, dvxd_, dvzd_, velv_) bind(c, name="set_velocity_model")
+      integer nvx_, nvz_
+      real goxd_, gozd_
+      real dvxd_, dvzd_
+      real(c_float) velv_(nvx_ + 1, nvz_ + 1)
+
+      integer i, j
+
+      nvx = nvx_
+      nvz = nvz_
+      goxd = goxd_
+      gozd = gozd_
+      dvxd = dvxd_
+      dvzd = dvzd_
+
+      if (allocated(velv)) then
+         deallocate (velv)
+      end if
+      
+      if (allocated(veln)) then
+      	deallocate(veln)
+      end if
+      
+      allocate (velv(0:nvz + 1, 0:nvx + 1), STAT=checkstat)
+
+      do i = 0, nvz + 1
+         do j = 0, nvx + 1
+            velv(i, j) = velv_(i, j)
+         end do
+      end do
+      
+      call gridder2()
+   
+   end subroutine set_velocity_model
+
+   subroutine get_number_of_velocity_model_vertices(nvx_,nvz_) bind(c, name="get_number_of_velocity_model_vertices")
+	integer nvx_,nvz_
+	nvx_=nvx
+	nvz_=nvz
+   end subroutine get_number_of_velocity_model_vertices
+
+   subroutine get_velocity_model(nvx_, nvz_, goxd_, gozd_, dvxd_, dvzd_, velv_) bind(c, name="get_velocity_model")
+      integer nvx_, nvz_
+      real goxd_, gozd_
+      real dvxd_, dvzd_
+      real(c_float) velv_(nvx_ + 1, nvz_ + 1)
+      integer i, j
+
+      nvx_ = nvx
+      nvz_ = nvz
+      goxd_ = goxd
+      gozd_ = gozd
+      dvxd_ = dvxd
+      dvzd_ = dvzd
+
+      do i = 0, nvz + 1
+         do j = 0, nvx + 1
+            velv_(i, j) = velv(i, j)
+         end do
+      end do
+      
+   end subroutine get_velocity_model
+
 
 
    subroutine read_sources(fn_ptr, fn_ptr_length) bind(c, name="read_sources")
@@ -2046,15 +2183,17 @@ CONTAINS
       if (allocated(srs)) then
          deallocate (srs)
       end if
-      allocate (srs(nsrc, nrc))
+      allocate (srs(nrc, nsrc))
       call c_f_pointer(fn_ptr, fn_str)
       open (unit=10, file=fn_str, status='old')
       DO i = 1, nsrc
          DO j = 1, nrc
             READ (10, *) srs(j, i)
          END DO
-      END DO
+      END DO      
       close (10)
+
+
    end subroutine read_source_receiver_associations
 
    subroutine set_source_receiver_associations(srs_) bind(c, name="set_source_receiver_associations")
@@ -2063,45 +2202,155 @@ CONTAINS
       if (allocated(srs)) then
          deallocate (srs)
       end if
-      allocate (srs(nsrc, nrc))
+      allocate (srs(nrc, nsrc))
+      srs=0
       DO i = 1, nsrc
          DO j = 1, nrc
-            srs(i, j) = srs_(i, j)
+            srs(j, i) = srs_(j, i)
          end do
       end do
    end subroutine set_source_receiver_associations
 
    subroutine get_source_receiver_associations(srs_) bind(c, name="get_source_receiver_associations")
-      integer(c_int), intent(inout) :: srs_(nsrc, nrc)
+      integer(c_int), intent(inout) :: srs_(nrc, nsrc)
       integer i, j
       DO i = 1, nsrc
          DO j = 1, nrc
-            srs_(i, j) = srs(i, j)
+            srs_(j, i) = srs(j, i)
          end do
       end do
    end subroutine get_source_receiver_associations
 
 
-   subroutine allocate_memory_for_results() bind(c, name="allocate_memory_for_results")
+   subroutine allocate_result_arrays() bind(c, name="allocate_result_arrays")
+
+	! We don't know the size of some of the arrays beforhand thus we make an educated 
+	! guess.
+	!
+    ! ttimes  - source receiver travel times - fsrt
+    ! frechet - frechet derivatives - cfd
+    ! rpaths  - raypaths - wttf
+    ! tfield  - travetime field - wrgf
+    !	
+
 
 	if (fsrt .eq. 1) then
-    
+    	nttimes=sum(srs) 
+    	allocate(ttimes(nttimes))
+    	allocate(tids(nttimes))
+    	nttimes=0
     end if
        
   	if (cfd .EQ. 1) then
-    
+  		frechet_nnz=sum(srs)*nvx*nvz
+    	allocate(frechet_irow(frechet_nnz))
+    	allocate(frechet_icol(frechet_nnz))
+    	allocate(frechet_val(frechet_nnz))
+    	frechet_nnz=0
     end if
 
    	if (wttf .eq. 1) then
-    
+    	npaths=sum(srs) 
+    	npts=(nvx*nvz)*0.25
+    	allocate(paths(npaths,npts,2))
+    	allocate(nppts(npaths))
+    	npaths=0
+    	nppts=0
     end if
     
     if (wrgf .eq. 1) then 
-    
+    	allocate(tfield(nsrc,nvx,nvz))    
     end if
   
-   end subroutine allocate_memory_for_results
+   end subroutine allocate_result_arrays
 
+   subroutine deallocate_result_arrays() bind(c, name="deallocate_result_arrays")
+
+	if (fsrt .eq. 1) then
+    	deallocate(ttimes)
+    	deallocate(tids)
+    end if
+       
+  	if (cfd .EQ. 1) then
+    	deallocate(frechet_irow)
+    	deallocate(frechet_icol)
+    	deallocate(frechet_val)
+    end if
+
+   	if (wttf .eq. 1) then
+    	deallocate(paths)
+    	deallocate(nppts)
+    end if
+    
+    if (wrgf .eq. 1) then 
+    	deallocate(tfield)    
+    end if
+
+	end subroutine deallocate_result_arrays
+
+
+	subroutine get_number_of_traveltimes(nttimes_) bind(c, name="get_number_of_traveltimes")
+	integer(c_int), intent(inout) :: nttimes_
+	nttimes_= nttimes
+	end subroutine get_number_of_traveltimes
+
+	subroutine get_traveltimes(ttimes_,tids_) bind(c, name="get_traveltimes")
+
+	real(c_float) :: ttimes_(nttimes)
+	integer(c_int) :: tids_(nttimes)
+	integer i
+	
+	do i=1,nttimes
+		ttimes_(i)=ttimes(i)
+		tids_(i)=tids(i)
+	end do
+	
+	end subroutine get_traveltimes
+	
+	
+	subroutine get_number_of_frechet_derivatives(frechet_nnz_) bind(c, name="get_number_of_frechet_derivatives")
+	integer(c_int), intent(inout) :: frechet_nnz_
+	frechet_nnz_= frechet_nnz
+	end subroutine get_number_of_frechet_derivatives
+
+	
+	subroutine get_frechet_derivatives(frechet_irow_,frechet_icol_,frechet_val_) bind(c, name="get_frechet_derivatives")
+    integer(c_int), intent(inout) :: frechet_irow_(frechet_nnz),frechet_icol_(frechet_nnz)
+	real(c_float), intent(inout) :: frechet_val_(frechet_nnz)
+	integer i
+	do i=1,frechet_nnz
+		frechet_irow_(i) = frechet_irow(i)
+		frechet_icol_(i) = frechet_icol(i)
+		frechet_val_(i) = frechet_val(i)
+	end do
+		
+	end subroutine get_frechet_derivatives
+	
+	subroutine get_number_of_raypaths(npaths_)bind(c, name="get_number_of_raypaths")
+	integer(c_int) npaths_
+	npaths_=npaths
+	end subroutine get_number_of_raypaths
+	
+	
+	subroutine get_raypaths(paths_) bind(c, name="get_raypaths")
+
+ 	real(c_float) paths_(npaths,npts,2)
+ 	integer(c_int) nppts_(npaths)
+	integer i
+
+	do i=1,npaths
+		paths_(i,:,:)=paths(i,:,:)
+		nppts(i)=nppts(i)
+	end do
+
+	end subroutine get_raypaths
+	
+
+	subroutine get_travel_time_fields(tfield_) bind(c, name="get_travel_time_fields")
+	real(c_float)tfield_(nsrc,nvx,nvz)
+	tfield_=tfield
+	end subroutine get_travel_time_fields
+	
 
    SUBROUTINE run() bind(c, name="run")
       USE globalp
@@ -2252,9 +2501,9 @@ CONTAINS
 !
 ! Open file for source-receiver traveltime output if required.
 !
-      IF (fsrt .eq. 1) THEN
-         OPEN (UNIT=10, FILE=rtravel, STATUS='unknown')
-      END IF
+!!      IF (fsrt .eq. 1) THEN
+!!         OPEN (UNIT=10, FILE=rtravel, STATUS='unknown')
+!!      END IF
 !
 ! Open file for ray path output if required
 !
@@ -2464,7 +2713,7 @@ CONTAINS
 !  Find source-receiver traveltimes if required
 !
          IF (fsrt .eq. 1) THEN
-            CALL srtimes(x, z, i)
+            CALL srtimes2(x, z, i)
          END IF
 !
 !  Calculate raypath geometries and write to file if required.

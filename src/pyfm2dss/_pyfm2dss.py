@@ -172,8 +172,8 @@ class FastMarchingMethod:
         srs_ = self.libfm2dss.set_source_receiver_associations(
             srs_.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
         )
-        srs = numpy.array(srs_)
-        return srs
+
+        return 
 
     def get_source_receiver_associations(self):
 
@@ -184,13 +184,13 @@ class FastMarchingMethod:
         self.libfm2dss.get_number_of_receivers(ctypes.byref(nrc_))
         nrc = nrc_.value
 
-        srs_ = numpy.asfortranarray(numpy.zeros([nsrc, nrc]), dtype=numpy.int32)
+        srs_ = numpy.asfortranarray(numpy.zeros([nrc, nsrc]), dtype=numpy.int32)
         self.libfm2dss.get_source_receiver_associations(
             srs_.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
         )
 
-        srs = srs_
-        return srs_
+        srs = numpy.array(srs_)
+        return srs
 
     def read_velocity_model(self, fn_):
         fn = ctypes.c_char_p(fn_.encode("UTF-8"))
@@ -253,3 +253,12 @@ class FastMarchingMethod:
         dvzd = dvzd_.value
 
         return nvx, nvz, goxd, gozd, dvxd, dvzd, velv_
+
+
+    def allocate_result_arrays(self):
+        self.libfm2dss.allocate_result_arrays()
+    
+    def deallocate_result_arrays(self):
+        self.libfm2dss.deallocate_result_arrays()
+    
+    

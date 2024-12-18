@@ -1,6 +1,7 @@
 
 # this uses the set,get and read functions
 
+import numpy
 import faulthandler
 
 faulthandler.enable()
@@ -22,6 +23,7 @@ fmm.read_solver_options("fm2dss.in")
 gdx,gdz,asgr,sgdl,sgs,earth,fom,snb,fsrt,cfd,wttf,wrgf=fmm.get_solver_options()
 fmm.set_solver_options(gdx,gdz,asgr,sgdl,sgs,earth,fom,snb,fsrt,cfd,wttf,wrgf)
 
+
 fmm.read_velocity_model("gridc.vtx")
 nvx, nvz, goxd, gozd, dvxd, dvzd, velv=fmm.get_velocity_model()
 fmm.set_velocity_model(nvx, nvz, goxd, gozd, dvxd, dvzd, velv)
@@ -38,4 +40,11 @@ fmm.read_source_receiver_associations("otimes.dat")
 srs=fmm.get_source_receiver_associations()
 fmm.set_source_receiver_associations(srs)
 
+fmm.allocate_result_arrays()
 fmm.run()
+
+
+
+
+
+fmm.deallocate_result_arrays()
