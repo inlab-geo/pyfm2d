@@ -773,6 +773,7 @@ CONTAINS
          END DO
       END DO
       CLOSE (10)
+
 !
 ! Convert from degrees to radians
 !
@@ -847,6 +848,7 @@ CONTAINS
       IF (checkstat > 0) THEN
          WRITE (6, *) 'Error with DEALLOCATE: SUBROUTINE gridder: REAL ui,vi'
       END IF
+      
    END SUBROUTINE gridder
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1621,7 +1623,7 @@ END MODULE traveltime
 
 MODULE fmm
    use iso_c_binding
-    USE globalp
+   USE globalp
    USE traveltime
    IMPLICIT NONE
 
@@ -1636,7 +1638,282 @@ MODULE fmm
    INTEGER, SAVE :: nsrc
    REAL(KIND=i10), DIMENSION(:), ALLOCATABLE, SAVE :: scx, scz
 
+	integer sgs
+
+
 CONTAINS
+
+
+	subroutine read_solver_options(fn_ptr, fn_ptr_length) bind(c, name="read_configuration")
+
+      type(c_ptr), value::  fn_ptr
+      integer(c_int), value :: fn_ptr_length
+      character(len=fn_ptr_length, kind=c_char), pointer :: fn_str
+         CHARACTER(LEN=30) cdum
+   	  call c_f_pointer(fn_ptr, fn_str)
+
+      OPEN (UNIT=10, FILE=fn_str, STATUS='old')
+      READ (10, 1) cdum
+      READ (10, 1) cdum
+      READ (10, 1) cdum
+      READ (10, 1) cdum
+      READ (10, 1) cdum
+      READ (10, 1) cdum
+      READ (10, 1) cdum
+      READ (10, *) gdx, gdz
+      READ (10, *) asgr
+      READ (10, *) sgdl, sgs
+      READ (10, *) earth
+      READ (10, *) fom
+      READ (10, *) snb
+     ! READ (10, 1) cdum
+     ! READ (10, 1) cdum
+     ! READ (10, 1) cdum
+     ! READ (10, *) fsrt
+     ! READ (10, 1) rtravel
+     ! READ (10, *) cfd
+     ! READ (10, 1) frechet
+     ! READ (10, *) wttf
+     ! READ (10, 1) travelt
+     ! READ (10, *) wrgf
+     ! READ (10, 1) wrays
+      CLOSE (10)
+1     FORMAT(a30)
+      end subroutine read_solver_options
+   
+   
+   subroutine set_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_) bind(c, name="set_solver_options")
+       integer(c_int) gdx_,gdz_,asgr_,sgdl_,sgs_
+       real(c_float) earth_
+       integer(c_int) fom_,snb_
+       
+       gdx=gdx_
+       gdz=gdz_
+       asgr=asgr_
+       sgdl=sgdl_
+       sgs=sgs_
+       earth=earth_
+       fom=fom_
+       snb=snb_
+    end subroutine set_solver_options
+
+   subroutine get_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_) bind(c, name="get_solver_options")
+       integer(c_int) gdx_,gdz_,asgr_,sgdl_,sgs_
+       real(c_float) earth_
+       integer(c_int) fom_,snb_
+       
+       gdx_=gdx
+       gdz_=gdz
+       asgr_=asgr
+       sgdl_=sgdl
+       sgs_=sgs
+       earth_=earth
+       fom_=fom
+       snb_=snb
+    end subroutine get_solver_options
+
+
+   subroutine read_velocity_model(fn_ptr, fn_ptr_length) bind(c, name="read_velocity_model")
+      type(c_ptr), value::  fn_ptr
+      integer(c_int), value :: fn_ptr_length
+      character(len=fn_ptr_length, kind=c_char), pointer :: fn_str
+      integer i, j
+      if (allocated(velv)) then
+         deallocate (velv)
+      end if
+      if (allocated(veln)) then
+          deallocate(veln)
+      end if
+      
+      call c_f_pointer(fn_ptr, fn_str)
+      open (unit=10, file=fn_str, status='old')
+      READ (10, *) nvx, nvz
+      READ (10, *) goxd, gozd
+      READ (10, *) dvxd, dvzd
+      ALLOCATE (velv(0:nvz + 1, 0:nvx + 1), STAT=checkstat)
+      IF (checkstat > 0) THEN
+         WRITE (6, *) 'Error with ALLOCATE: SUBROUTINE gridder: REAL velv'
+      END IF
+      DO i = 0, nvz + 1
+         DO j = 0, nvx + 1
+            READ (10, *) velv(i, j)
+         END DO
+      END DO
+      CLOSE (10)
+        
+      call velgridder()
+   end subroutine read_velocity_model
+
+   subroutine set_velocity_model(nvx_, nvz_, goxd_, gozd_, dvxd_, dvzd_, velv_) bind(c, name="set_velocity_model")
+      integer nvx_, nvz_
+      real goxd_, gozd_
+      real dvxd_, dvzd_
+      real velv_(nvx_ + 1, nvz_ + 1)
+
+      integer i, j
+
+      nvx = nvx_
+      nvz = nvz_
+      goxd = goxd_
+      gozd = gozd_
+      dvxd = dvxd_
+      dvzd = dvzd_
+
+      if (allocated(velv)) then
+         deallocate (velv)
+      end if
+      
+      if (allocated(veln)) then
+      deallocate(veln)
+      end if
+      
+      allocate (velv(0:nvz + 1, 0:nvx + 1), STAT=checkstat)
+
+      do i = 0, nvz + 1
+         do j = 0, nvx + 1
+            velv(i, j) = velv_(i, j)
+         end do
+      end do
+      call velgridder()
+   end subroutine set_velocity_model
+
+   subroutine get_number_of_velocity_model_vertices(nvx_,nvz_) bind(c, name="get_number_of_velocity_model_vertices")
+	integer nvx_,nvz_
+	nvx_=nvx
+	nvz_=nvz
+   end subroutine get_number_of_velocity_model_vertices
+
+   subroutine get_velocity_model(nvx_, nvz_, goxd_, gozd_, dvxd_, dvzd_, velv_) bind(c, name="get_velocity_model")
+      integer nvx_, nvz_
+      real goxd_, gozd_
+      real dvxd_, dvzd_
+      real velv_(nvx_ + 1, nvz_ + 1)
+      integer i, j
+
+      nvx_ = nvx
+      nvz_ = nvz
+      goxd_ = goxd
+      gozd_ = gozd
+      dvxd_ = dvxd
+      dvzd_ = dvzd
+
+      do i = 0, nvz + 1
+         do j = 0, nvx + 1
+            velv_(i, j) = velv(i, j)
+         end do
+      end do
+   end subroutine get_velocity_model
+
+   SUBROUTINE velgridder()
+      IMPLICIT NONE
+      INTEGER :: i, j, l, m, i1, j1, conx, conz, stx, stz
+      REAL(KIND=i10) :: u, sumi, sumj
+      REAL(KIND=i10), DIMENSION(:, :), ALLOCATABLE :: ui, vi
+!
+! u = independent parameter for b-spline
+! ui,vi = bspline basis functions
+! conx,conz = variables for edge of B-spline grid
+! stx,stz = counters for veln grid points
+! sumi,sumj = summation variables for computing b-spline
+!
+! Open the grid file and read in the velocity grid.
+!
+!      OPEN (UNIT=10, FILE=grid, STATUS='old')
+!      READ (10, *) nvx, nvz
+!      READ (10, *) goxd, gozd
+!      READ (10, *) dvxd, dvzd
+!      ALLOCATE (velv(0:nvz + 1, 0:nvx + 1), STAT=checkstat)
+!      IF (checkstat > 0) THEN
+!         WRITE (6, *) 'Error with ALLOCATE: SUBROUTINE gridder: REAL velv'
+!      END IF
+!      DO i = 0, nvz + 1
+!         DO j = 0, nvx + 1
+!            READ (10, *) velv(i, j)
+!         END DO
+!      END DO
+!      CLOSE (10)
+!
+! Convert from degrees to radians
+!
+      dvx = dvxd*pi/180.0
+      dvz = dvzd*pi/180.0
+      gox = (90.0 - goxd)*pi/180.0
+      goz = gozd*pi/180.0
+      
+
+!
+! Compute corresponding values for propagation grid.
+!
+      nnx = (nvx - 1)*gdx + 1
+      nnz = (nvz - 1)*gdz + 1
+      dnx = dvx/gdx
+      dnz = dvz/gdz
+      dnxd = dvxd/gdx
+      dnzd = dvzd/gdz
+      ALLOCATE (veln(nnz, nnx), STAT=checkstat)
+      IF (checkstat > 0) THEN
+         WRITE (6, *) 'Error with ALLOCATE: SUBROUTINE velgridder: REAL veln'
+      END IF
+!
+! Now dice up the grid
+!
+
+      ALLOCATE (ui(gdx + 1, 4), STAT=checkstat)
+      IF (checkstat > 0) THEN
+         WRITE (6, *) 'Error with ALLOCATE: Subroutine velgridder: REAL ui'
+      END IF
+      DO i = 1, gdx + 1
+         u = gdx
+         u = (i - 1)/u
+         ui(i, 1) = (1.0 - u)**3/6.0
+         ui(i, 2) = (4.0 - 6.0*u**2 + 3.0*u**3)/6.0
+         ui(i, 3) = (1.0 + 3.0*u + 3.0*u**2 - 3.0*u**3)/6.0
+         ui(i, 4) = u**3/6.0
+      END DO
+      
+     
+      ALLOCATE (vi(gdz + 1, 4), STAT=checkstat)
+      IF (checkstat > 0) THEN
+         WRITE (6, *) 'Error with ALLOCATE: Subroutine velgridder: REAL vi'
+      END IF
+      DO i = 1, gdz + 1
+         u = gdz
+         u = (i - 1)/u
+         vi(i, 1) = (1.0 - u)**3/6.0
+         vi(i, 2) = (4.0 - 6.0*u**2 + 3.0*u**3)/6.0
+         vi(i, 3) = (1.0 + 3.0*u + 3.0*u**2 - 3.0*u**3)/6.0
+         vi(i, 4) = u**3/6.0
+      END DO
+      DO i = 1, nvz - 1
+         conz = gdz
+         IF (i == nvz - 1) conz = gdz + 1
+         DO j = 1, nvx - 1
+            conx = gdx
+            IF (j == nvx - 1) conx = gdx + 1
+            DO l = 1, conz
+               stz = gdz*(i - 1) + l
+               DO m = 1, conx
+                  stx = gdx*(j - 1) + m
+                  sumi = 0.0
+                  DO i1 = 1, 4
+                     sumj = 0.0
+                     DO j1 = 1, 4
+                        sumj = sumj + ui(m, j1)*velv(i - 2 + i1, j - 2 + j1)
+                     END DO
+                     sumi = sumi + vi(l, i1)*sumj
+                  END DO
+                  veln(stz, stx) = sumi
+               END DO
+            END DO
+         END DO
+      END DO
+      DEALLOCATE (ui, vi, STAT=checkstat)
+      IF (checkstat > 0) THEN
+         WRITE (6, *) 'Error with DEALLOCATE: SUBROUTINE gridder: REAL ui,vi'
+      END IF
+      
+   END SUBROUTINE velgridder
+
 
    subroutine read_sources(fn_ptr, fn_ptr_length) bind(c, name="read_sources")
       type(c_ptr), value::  fn_ptr
@@ -1750,45 +2027,44 @@ CONTAINS
       type(c_ptr), value::  fn_ptr
       integer(c_int), value :: fn_ptr_length
       character(len=fn_ptr_length, kind=c_char), pointer :: fn_str
-      integer i,j
+      integer i, j
       if (allocated(srs)) then
          deallocate (srs)
       end if
-      allocate(srs(nsrc,nrc))
+      allocate (srs(nsrc, nrc))
       call c_f_pointer(fn_ptr, fn_str)
       open (unit=10, file=fn_str, status='old')
-       DO i = 1, nsrc
+      DO i = 1, nsrc
          DO j = 1, nrc
             READ (10, *) srs(j, i)
          END DO
       END DO
-     close (10)
+      close (10)
    end subroutine read_source_receiver_associations
 
    subroutine set_source_receiver_associations(srs_) bind(c, name="set_source_receiver_associations")
-      real(c_float), intent(in) :: srs_(nsrc,nrc)
-      integer i,j
+      integer(c_int), intent(in) :: srs_(nsrc, nrc)
+      integer i, j
       if (allocated(srs)) then
          deallocate (srs)
       end if
-      allocate(srs(nsrc,nrc))
-       DO i = 1, nsrc
+      allocate (srs(nsrc, nrc))
+      DO i = 1, nsrc
          DO j = 1, nrc
-    		srs(i,j)=srs_(i,j)
-    		end do
+            srs(i, j) = srs_(i, j)
+         end do
       end do
    end subroutine set_source_receiver_associations
 
    subroutine get_source_receiver_associations(srs_) bind(c, name="get_source_receiver_associations")
-      real(c_float), intent(inout) :: srs_(nsrc,nrc)
-      integer i,j
-       DO i = 1, nsrc
+      integer(c_int), intent(inout) :: srs_(nsrc, nrc)
+      integer i, j
+      DO i = 1, nsrc
          DO j = 1, nrc
-    		srs_(i,j)=srs(i,j)
-    		end do
+            srs_(i, j) = srs(i, j)
+         end do
       end do
    end subroutine get_source_receiver_associations
-
 
 
    SUBROUTINE run() bind(c, name="run")
@@ -1798,7 +2074,7 @@ CONTAINS
       CHARACTER(LEN=30) :: sources, receivers, grid, frechet
       CHARACTER(LEN=30) :: travelt, rtravel, wrays, otimes, cdum
       INTEGER :: i, j, k, l, wttf, fsrt, wrgf, cfd, tnr, urg
-      INTEGER :: sgs, isx, isz, sw, idm1, idm2, nnxb, nnzb
+      INTEGER :: isx, isz, sw, idm1, idm2, nnxb, nnzb
       INTEGER :: ogx, ogz, grdfx, grdfz, maxbt
       REAL(KIND=i10) :: x, z, goxb, gozb, dnxb, dnzb
 !
@@ -1862,7 +2138,7 @@ CONTAINS
 !
 ! Call a subroutine which reads in the velocity grid
 !
-      CALL gridder(grid)
+!   CALL gridder(grid)
 !
 ! Read in all source coordinates.
 !
