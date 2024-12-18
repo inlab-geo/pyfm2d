@@ -22,6 +22,6 @@ Running `test_fmmin2d.py` from within the test directory will run the orignal pr
 turned into a subroutine that can be called from python like the fmm executable it reads 
 the files from disk
 
-Running `test_sources.py` illustrate how for the reorganised/expanded `fmm2dss.f90` now 
+Running `test_run.py` illustrate how for the reorganised/expanded `fmm2dss.f90` now 
 allows in python to read the sources from disk by providing a file name, set them 
 from python and get them back from an fmm instance.
