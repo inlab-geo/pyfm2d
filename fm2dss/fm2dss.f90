@@ -1639,7 +1639,7 @@ MODULE fmm
    REAL(KIND=i10), DIMENSION(:), ALLOCATABLE, SAVE :: scx, scz
 
 	integer sgs
-
+    integer fsrt, cfd, wttf, wrgf
 
 CONTAINS
 
@@ -1666,26 +1666,27 @@ CONTAINS
       READ (10, *) earth
       READ (10, *) fom
       READ (10, *) snb
-     ! READ (10, 1) cdum
-     ! READ (10, 1) cdum
-     ! READ (10, 1) cdum
-     ! READ (10, *) fsrt
-     ! READ (10, 1) rtravel
-     ! READ (10, *) cfd
-     ! READ (10, 1) frechet
-     ! READ (10, *) wttf
-     ! READ (10, 1) travelt
-     ! READ (10, *) wrgf
-     ! READ (10, 1) wrays
+      READ (10, 1) cdum
+      READ (10, 1) cdum
+      READ (10, 1) cdum
+      READ (10, *) fsrt
+     READ (10, 1) cdum ! READ (10, 1) rtravel
+      READ (10, *) cfd
+     READ (10, 1) cdum ! READ (10, 1) frechet
+      READ (10, *) wttf
+     READ (10, 1) cdum ! READ (10, 1) travelt
+      READ (10, *) wrgf
+     READ (10, 1) cdum ! READ (10, 1) wrays
       CLOSE (10)
 1     FORMAT(a30)
       end subroutine read_solver_options
    
    
-   subroutine set_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_) bind(c, name="set_solver_options")
+   subroutine set_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_,fsrt_, cfd_, wttf_, wrgf_) bind(c, name="set_solver_options")
        integer(c_int) gdx_,gdz_,asgr_,sgdl_,sgs_
        real(c_float) earth_
        integer(c_int) fom_,snb_
+       integer fsrt_, cfd_, wttf_, wrgf_
        
        gdx=gdx_
        gdz=gdz_
@@ -1694,14 +1695,19 @@ CONTAINS
        sgs=sgs_
        earth=earth_
        fom=fom_
-       snb=snb_
+       snb=snb_     
+    fsrt=fsrt_
+    cfd=cfd_
+    wttf=wttf_
+    wrgf=wrgf_
+       
     end subroutine set_solver_options
 
-   subroutine get_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_) bind(c, name="get_solver_options")
+   subroutine get_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_,fsrt_,cfd_,wttf_, wrgf_) bind(c, name="get_solver_options")
        integer(c_int) gdx_,gdz_,asgr_,sgdl_,sgs_
        real(c_float) earth_
        integer(c_int) fom_,snb_
-       
+        integer fsrt_, cfd_, wttf_, wrgf_
        gdx_=gdx
        gdz_=gdz
        asgr_=asgr
@@ -1710,6 +1716,10 @@ CONTAINS
        earth_=earth
        fom_=fom
        snb_=snb
+        fsrt_=fsrt_
+    cfd_=cfd
+    wttf_=wttf
+    wrgf_=wrgf
     end subroutine get_solver_options
 
 
@@ -1741,14 +1751,14 @@ CONTAINS
       END DO
       CLOSE (10)
         
-      call velgridder()
+      call gridder2()
    end subroutine read_velocity_model
 
    subroutine set_velocity_model(nvx_, nvz_, goxd_, gozd_, dvxd_, dvzd_, velv_) bind(c, name="set_velocity_model")
       integer nvx_, nvz_
       real goxd_, gozd_
       real dvxd_, dvzd_
-      real velv_(nvx_ + 1, nvz_ + 1)
+      real(c_float) velv_(nvx_ + 1, nvz_ + 1)
 
       integer i, j
 
@@ -1764,7 +1774,7 @@ CONTAINS
       end if
       
       if (allocated(veln)) then
-      deallocate(veln)
+      	deallocate(veln)
       end if
       
       allocate (velv(0:nvz + 1, 0:nvx + 1), STAT=checkstat)
@@ -1774,7 +1784,9 @@ CONTAINS
             velv(i, j) = velv_(i, j)
          end do
       end do
-      call velgridder()
+      
+      call gridder2()
+   
    end subroutine set_velocity_model
 
    subroutine get_number_of_velocity_model_vertices(nvx_,nvz_) bind(c, name="get_number_of_velocity_model_vertices")
@@ -1787,7 +1799,7 @@ CONTAINS
       integer nvx_, nvz_
       real goxd_, gozd_
       real dvxd_, dvzd_
-      real velv_(nvx_ + 1, nvz_ + 1)
+      real(c_float) velv_(nvx_ + 1, nvz_ + 1)
       integer i, j
 
       nvx_ = nvx
@@ -1802,9 +1814,10 @@ CONTAINS
             velv_(i, j) = velv(i, j)
          end do
       end do
+      
    end subroutine get_velocity_model
 
-   SUBROUTINE velgridder()
+   SUBROUTINE gridder2()
       IMPLICIT NONE
       INTEGER :: i, j, l, m, i1, j1, conx, conz, stx, stz
       REAL(KIND=i10) :: u, sumi, sumj
@@ -1835,6 +1848,7 @@ CONTAINS
 !
 ! Convert from degrees to radians
 !
+
       dvx = dvxd*pi/180.0
       dvz = dvzd*pi/180.0
       gox = (90.0 - goxd)*pi/180.0
@@ -1852,7 +1866,7 @@ CONTAINS
       dnzd = dvzd/gdz
       ALLOCATE (veln(nnz, nnx), STAT=checkstat)
       IF (checkstat > 0) THEN
-         WRITE (6, *) 'Error with ALLOCATE: SUBROUTINE velgridder: REAL veln'
+         WRITE (6, *) 'Error with ALLOCATE: SUBROUTINE gridder2: REAL veln'
       END IF
 !
 ! Now dice up the grid
@@ -1860,7 +1874,7 @@ CONTAINS
 
       ALLOCATE (ui(gdx + 1, 4), STAT=checkstat)
       IF (checkstat > 0) THEN
-         WRITE (6, *) 'Error with ALLOCATE: Subroutine velgridder: REAL ui'
+         WRITE (6, *) 'Error with ALLOCATE: Subroutine gridder2: REAL ui'
       END IF
       DO i = 1, gdx + 1
          u = gdx
@@ -1874,7 +1888,7 @@ CONTAINS
      
       ALLOCATE (vi(gdz + 1, 4), STAT=checkstat)
       IF (checkstat > 0) THEN
-         WRITE (6, *) 'Error with ALLOCATE: Subroutine velgridder: REAL vi'
+         WRITE (6, *) 'Error with ALLOCATE: Subroutine gridder2: REAL vi'
       END IF
       DO i = 1, gdz + 1
          u = gdz
@@ -1912,7 +1926,8 @@ CONTAINS
          WRITE (6, *) 'Error with DEALLOCATE: SUBROUTINE gridder: REAL ui,vi'
       END IF
       
-   END SUBROUTINE velgridder
+      
+   END SUBROUTINE gridder2
 
 
    subroutine read_sources(fn_ptr, fn_ptr_length) bind(c, name="read_sources")
@@ -2067,13 +2082,34 @@ CONTAINS
    end subroutine get_source_receiver_associations
 
 
+   subroutine allocate_memory_for_results() bind(c, name="allocate_memory_for_results")
+
+	if (fsrt .eq. 1) then
+    
+    end if
+       
+  	if (cfd .EQ. 1) then
+    
+    end if
+
+   	if (wttf .eq. 1) then
+    
+    end if
+    
+    if (wrgf .eq. 1) then 
+    
+    end if
+  
+   end subroutine allocate_memory_for_results
+
+
    SUBROUTINE run() bind(c, name="run")
       USE globalp
       USE traveltime
       IMPLICIT NONE
       CHARACTER(LEN=30) :: sources, receivers, grid, frechet
       CHARACTER(LEN=30) :: travelt, rtravel, wrays, otimes, cdum
-      INTEGER :: i, j, k, l, wttf, fsrt, wrgf, cfd, tnr, urg
+      INTEGER :: i, j, k, l, tnr, urg
       INTEGER :: isx, isz, sw, idm1, idm2, nnxb, nnzb
       INTEGER :: ogx, ogz, grdfx, grdfz, maxbt
       REAL(KIND=i10) :: x, z, goxb, gozb, dnxb, dnzb

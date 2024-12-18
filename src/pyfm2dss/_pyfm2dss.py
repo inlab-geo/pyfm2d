@@ -21,7 +21,9 @@ class FastMarchingMethod:
         fn = ctypes.c_char_p(fn_.encode("UTF-8"))
         self.libfm2dss.read_configuration(fn, ctypes.c_int(len(fn.value)))
 
-    def set_solver_options(self, gdx, gdz, asgr, sgdl, sgs, earth, fom, snb):
+    def set_solver_options(
+        self, gdx, gdz, asgr, sgdl, sgs, earth, fom, snb, fsrt, cfd, wttf, wrgf
+    ):
         gdx_ = ctypes.c_int(gdx)
         gdz_ = ctypes.c_int(gdz)
         asgr_ = ctypes.c_int(asgr)
@@ -30,6 +32,11 @@ class FastMarchingMethod:
         earth_ = ctypes.c_float(earth)
         fom_ = ctypes.c_int(fom)
         snb_ = ctypes.c_int(snb)
+
+        fsrt_ = ctypes.c_int(fsrt)
+        cfd_ = ctypes.c_int(cfd)
+        wttf_ = ctypes.c_int(wttf)
+        wrgf_ = ctypes.c_int(wrgf)
 
         self.libfm2dss.set_solver_options(
             ctypes.byref(gdx_),
@@ -40,6 +47,10 @@ class FastMarchingMethod:
             ctypes.byref(earth_),
             ctypes.byref(fom_),
             ctypes.byref(snb_),
+            ctypes.byref(fsrt_),
+            ctypes.byref(cfd_),
+            ctypes.byref(wttf_),
+            ctypes.byref(wrgf_),
         )
 
     def get_solver_options(self):
@@ -52,6 +63,11 @@ class FastMarchingMethod:
         fom_ = ctypes.c_int(-99)
         snb_ = ctypes.c_int(-99)
 
+        fsrt_ = ctypes.c_int(-99)
+        cfd_ = ctypes.c_int(-99)
+        wttf_ = ctypes.c_int(-99)
+        wrgf_ = ctypes.c_int(-99)
+
         self.libfm2dss.get_solver_options(
             ctypes.byref(gdx_),
             ctypes.byref(gdz_),
@@ -61,6 +77,10 @@ class FastMarchingMethod:
             ctypes.byref(earth_),
             ctypes.byref(fom_),
             ctypes.byref(snb_),
+            ctypes.byref(fsrt_),
+            ctypes.byref(cfd_),
+            ctypes.byref(wttf_),
+            ctypes.byref(wrgf_),
         )
 
         gdx = gdx_.value
@@ -71,7 +91,13 @@ class FastMarchingMethod:
         earth = earth_.value
         fom = fom_.value
         snb = snb_.value
-        return gdx, gdz, asgr, sgdl, sgs, earth, fom, snb
+
+        fsrt = fsrt_.value
+        cfd = cfd_.value
+        wttf = wttf_.value
+        wrgf = wrgf_.value
+
+        return gdx, gdz, asgr, sgdl, sgs, earth, fom, snb, fsrt, cfd, wttf, wrgf
 
     def read_sources(self, fn_):
         fn = ctypes.c_char_p(fn_.encode("UTF-8"))
@@ -204,7 +230,7 @@ class FastMarchingMethod:
         dvzd_ = ctypes.c_float(-99.9)
 
         velv_ = numpy.asfortranarray(
-            numpy.zeros([nvx_.value + 1, nvz_.value + 1]), dtype=float
+            numpy.zeros([nvx_.value + 1, nvz_.value + 1]), dtype=numpy.float32
         )
 
         self.libfm2dss.get_velocity_model(

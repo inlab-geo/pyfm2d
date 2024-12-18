@@ -19,15 +19,12 @@ fmm = pyfm2dss.FastMarchingMethod()
 
 
 fmm.read_solver_options("fm2dss.in")
-gdx,gdz,asgr,sgdl,sgs,earth,fom,snb=fmm.get_solver_options()
-fmm.set_solver_options(gdx,gdz,asgr,sgdl,sgs,earth,fom,snb)
-
+gdx,gdz,asgr,sgdl,sgs,earth,fom,snb,fsrt,cfd,wttf,wrgf=fmm.get_solver_options()
+fmm.set_solver_options(gdx,gdz,asgr,sgdl,sgs,earth,fom,snb,fsrt,cfd,wttf,wrgf)
 
 fmm.read_velocity_model("gridc.vtx")
-#nvx, nvz, goxd, gozd, dvxd, dvzd, velv=fmm.get_velocity_model()
-#fmm.set_velocity_model(nvx, nvz, goxd, gozd, dvxd, dvzd, velv)
-
-
+nvx, nvz, goxd, gozd, dvxd, dvzd, velv=fmm.get_velocity_model()
+fmm.set_velocity_model(nvx, nvz, goxd, gozd, dvxd, dvzd, velv)
 
 fmm.read_sources("sources.dat")
 scx, scz = fmm.get_sources()
@@ -40,6 +37,5 @@ fmm.set_receivers(rcx, rcz)
 fmm.read_source_receiver_associations("otimes.dat")
 srs=fmm.get_source_receiver_associations()
 fmm.set_source_receiver_associations(srs)
-
 
 fmm.run()
