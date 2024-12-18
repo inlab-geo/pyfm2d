@@ -2346,13 +2346,13 @@ CONTAINS
 	end subroutine get_raypaths
 	
 
-	subroutine get_travel_time_fields(tfield_) bind(c, name="get_travel_time_fields")
+	subroutine get_traveltime_fields(tfield_) bind(c, name="get_travel_time_fields")
 	real(c_float)tfield_(nsrc,nvx,nvz)
 	tfield_=tfield
-	end subroutine get_travel_time_fields
+	end subroutine get_traveltime_fields
 	
 
-   SUBROUTINE run() bind(c, name="run")
+   SUBROUTINE compute() bind(c, name="run")
       USE globalp
       USE traveltime
       IMPLICIT NONE
@@ -2782,8 +2782,7 @@ CONTAINS
          WRITE (6, *) 'Error with DEALLOCATE: PROGRAM fmmin2d: final deallocate'
       END IF
       WRITE (6, *) 'Program fm2dss has finished successfully!'
-      STOP
-   END SUBROUTINE run
+   END SUBROUTINE compute
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! MAIN PROGRAM

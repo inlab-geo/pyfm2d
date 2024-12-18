@@ -41,9 +41,13 @@ srs=fmm.get_source_receiver_associations()
 fmm.set_source_receiver_associations(srs)
 
 fmm.allocate_result_arrays()
-fmm.run()
+fmm.compute()
+
+ttimes=fmm.get_traveltimes()
 
 
+
+print (ttimes[0:5])
 
 
 
