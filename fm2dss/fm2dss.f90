@@ -1650,14 +1650,15 @@ MODULE fmm
 	integer(c_int),allocatable :: tids(:)
 
 	integer(c_int) :: frechet_nnz
+	integer(c_int) :: max_frechet_nnz
 	integer(c_int),allocatable :: frechet_irow(:),frechet_icol(:)
 	real(c_float),allocatable :: frechet_val(:)
 
-	integer(c_int) :: npaths,npts
+	integer(c_int) :: npaths,max_nppts
 	integer(c_int),allocatable :: nppts(:)
 	real(c_float),allocatable :: paths(:,:,:)
 	
-	real(c_float),allocatable :: tfield(:,:,:)
+	real(c_float),allocatable :: tfields(:,:,:)
 
 CONTAINS
 
@@ -1808,7 +1809,7 @@ CONTAINS
          	nttimes=nttimes+1
          	ttimes(nttimes)=norayt
          	tids(nttimes)=noray
-            WRITE (10, *) noray, norayt
+            !WRITE (10, *) noray, norayt
             CYCLE
          END IF
 !
@@ -1883,7 +1884,7 @@ CONTAINS
             END DO
          END IF
 
-         WRITE (10, *) yesray, trr
+         !!!WRITE (10, *) yesray, trr
             
             nttimes=nttimes+1
          	ttimes(nttimes)=trr
@@ -1891,7 +1892,567 @@ CONTAINS
       END DO
    END SUBROUTINE srtimes2
 
+   SUBROUTINE rpaths2(wrgf, csid, cfd, scx, scz)
+      USE globalp
+      IMPLICIT NONE
+      INTEGER, PARAMETER :: i5 = SELECTED_REAL_KIND(5, 10)
+      INTEGER, PARAMETER :: nopath = 0
+      INTEGER :: i, j, k, l, m, n, ipx, ipz, ipxr, ipzr, nrp, sw
+      INTEGER :: wrgf, cfd, csid, ipxo, ipzo, isx, isz
+      INTEGER :: ivx, ivz, ivxo, ivzo, nhp, maxrp
+      INTEGER :: ivxt, ivzt, ipxt, ipzt, isum, igref
+      INTEGER, DIMENSION(4) :: chp
+      REAL(KIND=i5), PARAMETER :: ftol = 1.0e-6
+      REAL(KIND=i5) :: rayx, rayz
+      REAL(KIND=i10) :: dpl, rd1, rd2, xi, zi, vel, velo
+      REAL(KIND=i10) :: v, w, rigz, rigx, dinc, scx, scz
+      REAL(KIND=i10) :: dtx, dtz, drx, drz, produ, sred
+      REAL(KIND=i10), DIMENSION(:), ALLOCATABLE :: rgx, rgz
+      REAL(KIND=i5), DIMENSION(:, :), ALLOCATABLE :: fdm
+      REAL(KIND=i10), DIMENSION(4) :: vrat, vi, wi, vio, wio
+!
+! ipx,ipz = Coordinates of cell containing current point
+! ipxr,ipzr = Same as ipx,apz except for refined grid
+! ipxo,ipzo = Coordinates of previous point
+! rgx,rgz = (x,z) coordinates of ray geometry
+! ivx,ivz = Coordinates of B-spline vertex containing current point
+! ivxo,ivzo = Coordinates of previous point
+! maxrp = maximum number of ray points
+! nrp = number of points to describe ray
+! dpl = incremental path length of ray
+! xi,zi = edge of model coordinates
+! dtx,dtz = components of gradT
+! wrgf = Write out raypaths? (<0=all,0=no,>0=souce id)
+! cfd = calculate Frechet derivatives? (0=no,1=yes)
+! csid = current source id
+! fdm = Frechet derivative matrix
+! nhp = Number of ray segment-B-spline cell hit points
+! vrat = length ratio of ray sub-segment
+! chp = pointer to incremental change in x or z cell
+! drx,drz = distance from reference node of cell
+! produ = variable for trilinear interpolation
+! vel = velocity at current point
+! velo = velocity at previous point
+! v,w = local variables of x,z
+! vi,wi = B-spline basis functions at current point
+! vio,wio = vi,wi for previous point
+! ivxt,ivzt = temporary ivr,ivx,ivz values
+! rigx,rigz = end point of sub-segment of ray path
+! ipxt,ipzt = temporary ipx,ipz values
+! dinc = path length of ray sub-segment
+! rayr,rayx,rayz = ray path coordinates in single precision
+! isx,isz = current source cell location
+! scx,scz = current source coordinates
+! sred = source to ray endpoint distance
+! igref = ray endpoint lies in refined grid? (0=no,1=yes)
+! nopath = switch to indicate that no path is present
+!
+! Allocate memory to arrays for storing ray path geometry
+!
+      maxrp = nnx*nnz
+      ALLOCATE (rgx(maxrp + 1), STAT=checkstat)
+      IF (checkstat > 0) THEN
+         WRITE (6, *) 'Error with ALLOCATE: SUBROUTINE rpaths: REAL rgx'
+      END IF
+      ALLOCATE (rgz(maxrp + 1), STAT=checkstat)
+      IF (checkstat > 0) THEN
+         WRITE (6, *) 'Error with ALLOCATE: SUBROUTINE rpaths: REAL rgz'
+      END IF
+!
+! Allocate memory to partial derivative array
+!
+      IF (cfd .EQ. 1) THEN
+         ALLOCATE (fdm(0:nvz + 1, 0:nvx + 1), STAT=checkstat)
+         IF (checkstat > 0) THEN
+            WRITE (6, *) 'Error with ALLOCATE: SUBROUTINE rpaths: REAL fdm'
+         END IF
+      END IF
+!
+! Locate current source cell
+!
+      IF (asgr .EQ. 1) THEN
+         isx = INT((scx - goxr)/dnxr) + 1
+         isz = INT((scz - gozr)/dnzr) + 1
+      ELSE
+         isx = INT((scx - gox)/dnx) + 1
+         isz = INT((scz - goz)/dnz) + 1
+      END IF
+!
+! Set ray incremental path length equal to half width
+! of cell
+!
+      dpl = dnx*earth
+      rd1 = dnz*earth*SIN(gox)
+      IF (rd1 .LT. dpl) dpl = rd1
+      rd1 = dnz*earth*SIN(gox + (nnx - 1)*dnx)
+      IF (rd1 .LT. dpl) dpl = rd1
+      dpl = 0.5*dpl
+!
+! Loop through all the receivers
+!
+      DO i = 1, nrc
+!
+!  If path does not exist, then cycle the loop
+!
+         IF (cfd .EQ. 1) THEN
+            fdm = 0.0
+         END IF
+         IF (srs(i, csid) .EQ. 0) THEN
+            IF (wrgf .EQ. csid .OR. wrgf .LT. 0) THEN
+             !!!  WRITE (40, *) nopath
+            END IF
+            IF (cfd .EQ. 1) THEN
+             !!!  WRITE (50, *) nopath
+            END IF
+            CYCLE
+         END IF
+!
+!  The first step is to locate the receiver in the grid.
+!
+         ipx = INT((rcx(i) - gox)/dnx) + 1
+         ipz = INT((rcz(i) - goz)/dnz) + 1
+         sw = 0
+         IF (ipx .lt. 1 .or. ipx .gt. nnx) sw = 1
+         IF (ipz .lt. 1 .or. ipz .gt. nnz) sw = 1
+         !IF(ipx.lt.1.or.ipx.ge.nnx)sw=1 ! MS change to allow receiver on boundary
+         !IF(ipz.lt.1.or.ipz.ge.nnz)sw=1 ! MS change to allow receiver on boundary
+         IF (sw .eq. 1) then
+            ipx = 90.0 - ipx*180.0/pi
+            ipz = ipz*180.0/pi
+            WRITE (6, *) "Receiver lies outside model (lat,long)= ", ipx, ipz
+            WRITE (6, *) "TERMINATING PROGRAM!!!"
+            STOP
+         END IF
+         IF (ipx .eq. nnx) ipx = ipx - 1
+         IF (ipz .eq. nnz) ipz = ipz - 1
+!
+!  First point of the ray path is the receiver
+!
+         rgx(1) = rcx(i)
+         rgz(1) = rcz(i)
+!
+!  Test to see if receiver is in source neighbourhood
+!
+         sred = ((scx - rgx(1))*earth)**2
+         sred = sred + ((scz - rgz(1))*earth*SIN(rgx(1)))**2
+         sred = SQRT(sred)
+         IF (sred .LT. 2.0*dpl) THEN
+            rgx(2) = scx
+            rgz(2) = scz
+            nrp = 2
+            sw = 1
+         END IF
+!
+!  If required, see if receiver lies within refined grid
+!
+         IF (asgr .EQ. 1) THEN
+            ipxr = INT((rcx(i) - goxr)/dnxr) + 1
+            ipzr = INT((rcz(i) - gozr)/dnzr) + 1
+            igref = 1
+            IF (ipxr .LT. 1 .OR. ipxr .GE. nnxr) igref = 0
+            IF (ipzr .LT. 1 .OR. ipzr .GE. nnzr) igref = 0
+            IF (igref .EQ. 1) THEN
+               IF (nstsr(ipzr, ipxr) .NE. 0 .OR. nstsr(ipzr + 1, ipxr) .NE. 0) igref = 0
+               IF (nstsr(ipzr, ipxr + 1) .NE. 0 .OR. nstsr(ipzr + 1, ipxr + 1) .NE. 0) igref = 0
+            END IF
+         ELSE
+            igref = 0
+         END IF
+!
+!  Due to the method for calculating traveltime gradient, if the
+!  the ray end point lies in the source cell, then we are also done.
+!
+         IF (sw .EQ. 0) THEN
+            IF (asgr .EQ. 1) THEN
+               IF (igref .EQ. 1) THEN
+                  IF (ipxr .EQ. isx) THEN
+                     IF (ipzr .EQ. isz) THEN
+                        rgx(2) = scx
+                        rgz(2) = scz
+                        nrp = 2
+                        sw = 1
+                     END IF
+                  END IF
+               END IF
+            ELSE
+               IF (ipx .EQ. isx) THEN
+                  IF (ipz .EQ. isz) THEN
+                     rgx(2) = scx
+                     rgz(2) = scz
+                     nrp = 2
+                     sw = 1
+                  END IF
+               END IF
+            END IF
+         END IF
+!
+!  Now trace ray from receiver to "source"
+!
+         DO j = 1, maxrp
+            IF (sw .EQ. 1) EXIT
+!
+!     Calculate traveltime gradient vector for current cell using
+!     a first-order or second-order scheme.
+!
+            IF (igref .EQ. 1) THEN
+!
+!        In this case, we are in the refined grid.
+!
+!        First order scheme applied here.
+!
+               dtx = ttnr(ipzr, ipxr + 1) - ttnr(ipzr, ipxr)
+               dtx = dtx + ttnr(ipzr + 1, ipxr + 1) - ttnr(ipzr + 1, ipxr)
+               dtx = dtx/(2.0*earth*dnxr)
+               dtz = ttnr(ipzr + 1, ipxr) - ttnr(ipzr, ipxr)
+               dtz = dtz + ttnr(ipzr + 1, ipxr + 1) - ttnr(ipzr, ipxr + 1)
+               dtz = dtz/(2.0*earth*SIN(rgx(j))*dnzr)
+            ELSE
+!
+!        Here, we are in the coarse grid.
+!
+!        First order scheme applied here.
+!
+               dtx = ttn(ipz, ipx + 1) - ttn(ipz, ipx)
+               dtx = dtx + ttn(ipz + 1, ipx + 1) - ttn(ipz + 1, ipx)
+               dtx = dtx/(2.0*earth*dnx)
+               dtz = ttn(ipz + 1, ipx) - ttn(ipz, ipx)
+               dtz = dtz + ttn(ipz + 1, ipx + 1) - ttn(ipz, ipx + 1)
+               dtz = dtz/(2.0*earth*SIN(rgx(j))*dnz)
+            END IF
+!
+!     Calculate the next ray path point
+!
+            rd1 = SQRT(dtx**2 + dtz**2)
+            rgx(j + 1) = rgx(j) - dpl*dtx/(earth*rd1)
+            rgz(j + 1) = rgz(j) - dpl*dtz/(earth*SIN(rgx(j))*rd1)
+!
+!     Determine which cell the new ray endpoint
+!     lies in.
+!
+            ipxo = ipx
+            ipzo = ipz
+            IF (asgr .EQ. 1) THEN
+!
+!        Here, we test to see whether the ray endpoint lies
+!        within a cell of the refined grid
+!
+               ipxr = INT((rgx(j + 1) - goxr)/dnxr) + 1
+               ipzr = INT((rgz(j + 1) - gozr)/dnzr) + 1
+               igref = 1
+               IF (ipxr .LT. 1 .OR. ipxr .GE. nnxr) igref = 0
+               IF (ipzr .LT. 1 .OR. ipzr .GE. nnzr) igref = 0
+               IF (igref .EQ. 1) THEN
+                  IF (nstsr(ipzr, ipxr) .NE. 0 .OR. nstsr(ipzr + 1, ipxr) .NE. 0) igref = 0
+                  IF (nstsr(ipzr, ipxr + 1) .NE. 0 .OR. nstsr(ipzr + 1, ipxr + 1) .NE. 0) igref = 0
+               END IF
+               ipx = INT((rgx(j + 1) - gox)/dnx) + 1
+               ipz = INT((rgz(j + 1) - goz)/dnz) + 1
+            ELSE
+               ipx = INT((rgx(j + 1) - gox)/dnx) + 1
+               ipz = INT((rgz(j + 1) - goz)/dnz) + 1
+               igref = 0
+            END IF
+!
+!     Test the proximity of the source to the ray end point.
+!     If it is less than dpl then we are done
+!
+            sred = ((scx - rgx(j + 1))*earth)**2
+            sred = sred + ((scz - rgz(j + 1))*earth*SIN(rgx(j + 1)))**2
+            sred = SQRT(sred)
+            sw = 0
+            IF (sred .LT. 2.0*dpl) THEN
+               rgx(j + 2) = scx
+               rgz(j + 2) = scz
+               nrp = j + 2
+               sw = 1
+               IF (cfd .NE. 1) EXIT
+            END IF
+!
+!     Due to the method for calculating traveltime gradient, if the
+!     the ray end point lies in the source cell, then we are also done.
+!
+            IF (sw .EQ. 0) THEN
+               IF (asgr .EQ. 1) THEN
+                  IF (igref .EQ. 1) THEN
+                     IF (ipxr .EQ. isx) THEN
+                        IF (ipzr .EQ. isz) THEN
+                           rgx(j + 2) = scx
+                           rgz(j + 2) = scz
+                           nrp = j + 2
+                           sw = 1
+                           IF (cfd .NE. 1) EXIT
+                        END IF
+                     END IF
+                  END IF
+               ELSE
+                  IF (ipx .EQ. isx) THEN
+                     IF (ipz .EQ. isz) THEN
+                        rgx(j + 2) = scx
+                        rgz(j + 2) = scz
+                        nrp = j + 2
+                        sw = 1
+                        IF (cfd .NE. 1) EXIT
+                     END IF
+                  END IF
+               END IF
+            END IF
+!
+!     Test whether ray path segment extends beyond
+!     box boundaries
+!
+            IF (ipx .LT. 1) THEN
+               rgx(j + 1) = gox
+               ipx = 1
+               rbint = 1
+            END IF
+            IF (ipx .GE. nnx) THEN
+               rgx(j + 1) = gox + (nnx - 1)*dnx
+               ipx = nnx - 1
+               rbint = 1
+            END IF
+            IF (ipz .LT. 1) THEN
+               rgz(j + 1) = goz
+               ipz = 1
+               rbint = 1
+            END IF
+            IF (ipz .GE. nnz) THEN
+               rgz(j + 1) = goz + (nnz - 1)*dnz
+               ipz = nnz - 1
+               rbint = 1
+            END IF
+!
+!     Calculate the Frechet derivatives if required.
+!
+            IF (cfd .EQ. 1) THEN
+!
+!        First determine which B-spline cell the refined cells
+!        containing the ray path segment lies in. If they lie
+!        in more than one, then we need to divide the problem
+!        into separate parts (up to three).
+!
+               ivx = INT((ipx - 1)/gdx) + 1
+               ivz = INT((ipz - 1)/gdz) + 1
+               ivxo = INT((ipxo - 1)/gdx) + 1
+               ivzo = INT((ipzo - 1)/gdz) + 1
+!
+!        Calculate up to two hit points between straight
+!        ray segment and cell faces.
+!
+               nhp = 0
+               IF (ivx .NE. ivxo) THEN
+                  nhp = nhp + 1
+                  IF (ivx .GT. ivxo) THEN
+                     xi = gox + (ivx - 1)*dvx
+                  ELSE
+                     xi = gox + ivx*dvx
+                  END IF
+                  vrat(nhp) = (xi - rgx(j))/(rgx(j + 1) - rgx(j))
+                  chp(nhp) = 1
+               END IF
+               IF (ivz .NE. ivzo) THEN
+                  nhp = nhp + 1
+                  IF (ivz .GT. ivzo) THEN
+                     zi = goz + (ivz - 1)*dvz
+                  ELSE
+                     zi = goz + ivz*dvz
+                  END IF
+                  rd1 = (zi - rgz(j))/(rgz(j + 1) - rgz(j))
+                  IF (nhp .EQ. 1) THEN
+                     vrat(nhp) = rd1
+                     chp(nhp) = 2
+                  ELSE
+                     IF (rd1 .GE. vrat(nhp - 1)) THEN
+                        vrat(nhp) = rd1
+                        chp(nhp) = 2
+                     ELSE
+                        vrat(nhp) = vrat(nhp - 1)
+                        chp(nhp) = chp(nhp - 1)
+                        vrat(nhp - 1) = rd1
+                        chp(nhp - 1) = 2
+                     END IF
+                  END IF
+               END IF
+               nhp = nhp + 1
+               vrat(nhp) = 1.0
+               chp(nhp) = 0
+!
+!        Calculate the velocity, v and w values of the
+!        first point
+!
+               drx = (rgx(j) - gox) - (ipxo - 1)*dnx
+               drz = (rgz(j) - goz) - (ipzo - 1)*dnz
+               vel = 0.0
+               DO l = 1, 2
+                  DO m = 1, 2
+                     produ = (1.0 - ABS(((m - 1)*dnz - drz)/dnz))
+                     produ = produ*(1.0 - ABS(((l - 1)*dnx - drx)/dnx))
+                     IF (ipzo - 1 + m .LE. nnz .AND. ipxo - 1 + l .LE. nnx) THEN
+                        vel = vel + veln(ipzo - 1 + m, ipxo - 1 + l)*produ
+                     END IF
+                  END DO
+               END DO
+               drx = (rgx(j) - gox) - (ivxo - 1)*dvx
+               drz = (rgz(j) - goz) - (ivzo - 1)*dvz
+               v = drx/dvx
+               w = drz/dvz
+!
+!        Calculate the 12 basis values at the point
+!
+               vi(1) = (1.0 - v)**3/6.0
+               vi(2) = (4.0 - 6.0*v**2 + 3.0*v**3)/6.0
+               vi(3) = (1.0 + 3.0*v + 3.0*v**2 - 3.0*v**3)/6.0
+               vi(4) = v**3/6.0
+               wi(1) = (1.0 - w)**3/6.0
+               wi(2) = (4.0 - 6.0*w**2 + 3.0*w**3)/6.0
+               wi(3) = (1.0 + 3.0*w + 3.0*w**2 - 3.0*w**3)/6.0
+               wi(4) = w**3/6.0
+               ivxt = ivxo
+               ivzt = ivzo
+!
+!        Now loop through the one or more sub-segments of the
+!        ray path segment and calculate partial derivatives
+!
+               DO k = 1, nhp
+                  velo = vel
+                  vio = vi
+                  wio = wi
+                  IF (k .GT. 1) THEN
+                     IF (chp(k - 1) .EQ. 1) THEN
+                        ivxt = ivx
+                     ELSE IF (chp(k - 1) .EQ. 2) THEN
+                        ivzt = ivz
+                     END IF
+                  END IF
+!
+!           Calculate the velocity, v and w values of the
+!           new point
+!
+                  rigz = rgz(j) + vrat(k)*(rgz(j + 1) - rgz(j))
+                  rigx = rgx(j) + vrat(k)*(rgx(j + 1) - rgx(j))
+                  ipxt = INT((rigx - gox)/dnx) + 1
+                  ipzt = INT((rigz - goz)/dnz) + 1
+                  drx = (rigx - gox) - (ipxt - 1)*dnx
+                  drz = (rigz - goz) - (ipzt - 1)*dnz
+                  vel = 0.0
+                  DO m = 1, 2
+                     DO n = 1, 2
+                        produ = (1.0 - ABS(((n - 1)*dnz - drz)/dnz))
+                        produ = produ*(1.0 - ABS(((m - 1)*dnx - drx)/dnx))
+                        IF (ipzt - 1 + n .LE. nnz .AND. ipxt - 1 + m .LE. nnx) THEN
+                           vel = vel + veln(ipzt - 1 + n, ipxt - 1 + m)*produ
+                        END IF
+                     END DO
+                  END DO
+                  drx = (rigx - gox) - (ivxt - 1)*dvx
+                  drz = (rigz - goz) - (ivzt - 1)*dvz
+                  v = drx/dvx
+                  w = drz/dvz
+!
+!           Calculate the 8 basis values at the new point
+!
+                  vi(1) = (1.0 - v)**3/6.0
+                  vi(2) = (4.0 - 6.0*v**2 + 3.0*v**3)/6.0
+                  vi(3) = (1.0 + 3.0*v + 3.0*v**2 - 3.0*v**3)/6.0
+                  vi(4) = v**3/6.0
+                  wi(1) = (1.0 - w)**3/6.0
+                  wi(2) = (4.0 - 6.0*w**2 + 3.0*w**3)/6.0
+                  wi(3) = (1.0 + 3.0*w + 3.0*w**2 - 3.0*w**3)/6.0
+                  wi(4) = w**3/6.0
+!
+!           Calculate the incremental path length
+!
+                  IF (k .EQ. 1) THEN
+                     dinc = vrat(k)*dpl
+                  ELSE
+                     dinc = (vrat(k) - vrat(k - 1))*dpl
+                  END IF
+!
+!           Now compute the 16 contributions to the partial
+!           derivatives.
+!
+                  DO l = 1, 4
+                     DO m = 1, 4
+                        rd1 = vi(m)*wi(l)/vel**2
+                        rd2 = vio(m)*wio(l)/velo**2
+                        rd1 = -(rd1 + rd2)*dinc/2.0
+                        rd2 = fdm(ivzt - 2 + l, ivxt - 2 + m)
+                        fdm(ivzt - 2 + l, ivxt - 2 + m) = rd1 + rd2
+                     END DO
+                  END DO
+               END DO
+            END IF
+            IF (j .EQ. maxrp .AND. sw .EQ. 0) THEN
+               WRITE (6, *) 'Error with ray path detected!!!'
+               WRITE (6, *) 'Source id: ', csid
+               WRITE (6, *) 'Receiver id: ', i
+            END IF
+         END DO
+!
+!  Write ray paths to output file
+!
+         IF (wrgf .EQ. csid .OR. wrgf .LT. 0) THEN
+                     npaths=npaths+1
+            !! print *,nrp,max_nppts
+            !WRITE (40, *) nrp
+            DO j = 1, nrp
+               rayx = (pi/2 - rgx(j))*180.0/pi
+               rayz = rgz(j)*180.0/pi
+            !! WRITE (40, *) rayx, rayz
+!            print rayx,rayz
+            paths(npaths,j,1)=rayx
+            paths(npaths,j,2)=rayz
+            
+            END DO
+            nppts(npaths)=nrp
 
+         END IF
+!
+!  Write partial derivatives to output file
+!
+         IF (cfd .EQ. 1) THEN
+!
+!     Determine the number of non-zero elements.
+!
+            isum = 0
+            DO j = 0, nvz + 1
+               DO k = 0, nvx + 1
+                  IF (ABS(fdm(j, k)) .GE. ftol) isum = isum + 1
+               END DO
+            END DO
+            !WRITE (50, *) isum
+            isum = 0
+            DO j = 0, nvz + 1
+               DO k = 0, nvx + 1
+                  isum = isum + 1
+                  !IF (ABS(fdm(j, k)) .GE. ftol) WRITE (50, *) isum, fdm(j, k)
+                  
+                  IF (ABS(fdm(j, k)) .GE. ftol) then
+                  frechet_nnz=frechet_nnz+1
+                  frechet_icol(frechet_nnz)=isum
+                  frechet_irow(frechet_nnz)=npaths
+                  frechet_val(frechet_nnz)=fdm(j,k)
+                  end if
+                  
+               END DO
+            END DO
+         END IF
+      END DO
+      IF (cfd .EQ. 1) THEN
+         DEALLOCATE (fdm, STAT=checkstat)
+         IF (checkstat > 0) THEN
+            WRITE (6, *) 'Error with DEALLOCATE: SUBROUTINE rpaths: fdm'
+         END IF
+      END IF
+      DEALLOCATE (rgx, rgz, STAT=checkstat)
+      IF (checkstat > 0) THEN
+         WRITE (6, *) 'Error with DEALLOCATE: SUBROUTINE rpaths: rgx,rgz'
+      END IF
+   END SUBROUTINE rpaths2
+   
+   
+   
+   
+   
 	subroutine read_solver_options(fn_ptr, fn_ptr_length) bind(c, name="read_configuration")
 
       type(c_ptr), value::  fn_ptr
@@ -1927,13 +2488,15 @@ CONTAINS
      READ (10, 1) cdum ! READ (10, 1) wrays
       CLOSE (10)
 1     FORMAT(a30)
+
+
       end subroutine read_solver_options
    
    
    subroutine set_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_,fsrt_, cfd_, wttf_, wrgf_) bind(c, name="set_solver_options")
        integer(c_int) gdx_,gdz_,asgr_,sgdl_,sgs_
-       real(c_float) earth_
-       integer(c_int) fom_,snb_
+       real(c_float) earth_,snb_
+       integer(c_int) fom_
        integer fsrt_, cfd_, wttf_, wrgf_
        
        gdx=gdx_
@@ -1948,13 +2511,12 @@ CONTAINS
     cfd=cfd_
     wttf=wttf_
     wrgf=wrgf_
-       
     end subroutine set_solver_options
 
    subroutine get_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_,fsrt_,cfd_,wttf_, wrgf_) bind(c, name="get_solver_options")
        integer(c_int) gdx_,gdz_,asgr_,sgdl_,sgs_
-       real(c_float) earth_
-       integer(c_int) fom_,snb_
+       real(c_float) earth_,snb_
+       integer(c_int) fom_
         integer fsrt_, cfd_, wttf_, wrgf_
        gdx_=gdx
        gdz_=gdz
@@ -2006,7 +2568,7 @@ CONTAINS
       integer nvx_, nvz_
       real goxd_, gozd_
       real dvxd_, dvzd_
-      real(c_float) velv_(nvx_ + 1, nvz_ + 1)
+      real(c_float) velv_(0:nvz_ + 1, 0:nvx_ + 1)
 
       integer i, j
 
@@ -2043,11 +2605,18 @@ CONTAINS
 	nvz_=nvz
    end subroutine get_number_of_velocity_model_vertices
 
+ subroutine get_number_of_grid_nodes(nnx_,nnz_) bind(c, name="get_number_of_grid_nodes")
+	integer nnx_,nnz_
+	nnx_=nnx
+	nnz_=nnz
+   end subroutine get_number_of_grid_nodes
+
+
    subroutine get_velocity_model(nvx_, nvz_, goxd_, gozd_, dvxd_, dvzd_, velv_) bind(c, name="get_velocity_model")
       integer nvx_, nvz_
       real goxd_, gozd_
       real dvxd_, dvzd_
-      real(c_float) velv_(nvx_ + 1, nvz_ + 1)
+      real(c_float) velv_(0:nvz_ + 1, 0:nvx_ + 1)
       integer i, j
 
       nvx_ = nvx
@@ -2064,8 +2633,6 @@ CONTAINS
       end do
       
    end subroutine get_velocity_model
-
-
 
    subroutine read_sources(fn_ptr, fn_ptr_length) bind(c, name="read_sources")
       type(c_ptr), value::  fn_ptr
@@ -2180,6 +2747,7 @@ CONTAINS
       integer(c_int), value :: fn_ptr_length
       character(len=fn_ptr_length, kind=c_char), pointer :: fn_str
       integer i, j
+      
       if (allocated(srs)) then
          deallocate (srs)
       end if
@@ -2192,12 +2760,10 @@ CONTAINS
          END DO
       END DO      
       close (10)
-
-
    end subroutine read_source_receiver_associations
 
    subroutine set_source_receiver_associations(srs_) bind(c, name="set_source_receiver_associations")
-      integer(c_int), intent(in) :: srs_(nsrc, nrc)
+      integer(c_int), intent(in) :: srs_(nrc, nsrc)
       integer i, j
       if (allocated(srs)) then
          deallocate (srs)
@@ -2230,36 +2796,40 @@ CONTAINS
     ! ttimes  - source receiver travel times - fsrt
     ! frechet - frechet derivatives - cfd
     ! rpaths  - raypaths - wttf
-    ! tfield  - travetime field - wrgf
+    ! tfields  - travetime field - wrgf
     !	
 
 
 	if (fsrt .eq. 1) then
-    	nttimes=sum(srs) 
+		!!print*,">>> ttimes"
+    	nttimes=nsrc*nrc
     	allocate(ttimes(nttimes))
     	allocate(tids(nttimes))
     	nttimes=0
     end if
        
   	if (cfd .EQ. 1) then
-  		frechet_nnz=sum(srs)*nvx*nvz
-    	allocate(frechet_irow(frechet_nnz))
-    	allocate(frechet_icol(frechet_nnz))
-    	allocate(frechet_val(frechet_nnz))
+  		!!	print*,">>> frechet "
+  		max_frechet_nnz=nsrc*nrc*nvx*nvz
+    	allocate(frechet_irow(max_frechet_nnz))
+    	allocate(frechet_icol(max_frechet_nnz))
+    	allocate(frechet_val(max_frechet_nnz))
     	frechet_nnz=0
     end if
 
    	if (wttf .eq. 1) then
-    	npaths=sum(srs) 
-    	npts=(nvx*nvz)*0.25
-    	allocate(paths(npaths,npts,2))
+   		!!	print*,">>> paths"
+    	npaths=nsrc*nrc
+    	max_nppts=(nvx*nvz)
+    	allocate(paths(npaths,max_nppts,2))
     	allocate(nppts(npaths))
     	npaths=0
     	nppts=0
     end if
     
     if (wrgf .eq. 1) then 
-    	allocate(tfield(nsrc,nvx,nvz))    
+    	!!	print*,">>> tfields"
+    	allocate(tfields(nsrc,nnz,nnx))    
     end if
   
    end subroutine allocate_result_arrays
@@ -2267,23 +2837,31 @@ CONTAINS
    subroutine deallocate_result_arrays() bind(c, name="deallocate_result_arrays")
 
 	if (fsrt .eq. 1) then
+		!!	print*,">>> ttimes"
+
     	deallocate(ttimes)
     	deallocate(tids)
     end if
        
   	if (cfd .EQ. 1) then
+  	  	!!		print*,">>> frechet"
+
     	deallocate(frechet_irow)
     	deallocate(frechet_icol)
     	deallocate(frechet_val)
     end if
 
    	if (wttf .eq. 1) then
+   	   	!!		print*,">>> paths"
+
     	deallocate(paths)
     	deallocate(nppts)
     end if
     
     if (wrgf .eq. 1) then 
-    	deallocate(tfield)    
+        !!		print*,">>> tfields"
+
+    deallocate(tfields)    
     end if
 
 	end subroutine deallocate_result_arrays
@@ -2307,6 +2885,10 @@ CONTAINS
 	
 	end subroutine get_traveltimes
 	
+	subroutine get_maximum_number_of_frechet_derivatives(max_frechet_nnz_) bind(c, name="get_maximum_number_of_frechet_derivatives")
+	integer(c_int), intent(inout) :: max_frechet_nnz_
+	max_frechet_nnz_= max_frechet_nnz
+	end subroutine get_maximum_number_of_frechet_derivatives
 	
 	subroutine get_number_of_frechet_derivatives(frechet_nnz_) bind(c, name="get_number_of_frechet_derivatives")
 	integer(c_int), intent(inout) :: frechet_nnz_
@@ -2330,29 +2912,33 @@ CONTAINS
 	integer(c_int) npaths_
 	npaths_=npaths
 	end subroutine get_number_of_raypaths
-	
-	
-	subroutine get_raypaths(paths_) bind(c, name="get_raypaths")
 
- 	real(c_float) paths_(npaths,npts,2)
+	
+	subroutine get_maximum_number_of_points_per_raypath(max_nppts_)bind(c, name="get_maximum_number_of_points_per_raypath")
+	integer(c_int) max_nppts_
+	max_nppts_=max_nppts
+	end subroutine get_maximum_number_of_points_per_raypath
+		
+	subroutine get_raypaths(paths_,nppts_) bind(c, name="get_raypaths")
+ 	real(c_float) paths_(npaths,max_nppts,2)
  	integer(c_int) nppts_(npaths)
 	integer i
 
 	do i=1,npaths
 		paths_(i,:,:)=paths(i,:,:)
-		nppts(i)=nppts(i)
+		nppts_(i)=nppts(i)
 	end do
 
 	end subroutine get_raypaths
 	
 
-	subroutine get_traveltime_fields(tfield_) bind(c, name="get_travel_time_fields")
-	real(c_float)tfield_(nsrc,nvx,nvz)
-	tfield_=tfield
+	subroutine get_traveltime_fields(tfields_) bind(c, name="get_traveltime_fields")
+	real(c_float)tfields_(nsrc,nnz,nnx)
+	tfields_=tfields
 	end subroutine get_traveltime_fields
 	
 
-   SUBROUTINE compute() bind(c, name="run")
+   SUBROUTINE track() bind(c, name="track")
       USE globalp
       USE traveltime
       IMPLICIT NONE
@@ -2393,37 +2979,42 @@ CONTAINS
 ! otimes = file containing source-receiver association information
 !
 
-      OPEN (UNIT=10, FILE='fm2dss.in', STATUS='old')
-      READ (10, 1) cdum
-      READ (10, 1) cdum
-      READ (10, 1) cdum
-      READ (10, 1) sources
-      READ (10, 1) receivers
-      READ (10, 1) otimes
-      READ (10, 1) grid
-      READ (10, *) gdx, gdz
-      READ (10, *) asgr
-      READ (10, *) sgdl, sgs
-      READ (10, *) earth
-      READ (10, *) fom
-      READ (10, *) snb
-      READ (10, 1) cdum
-      READ (10, 1) cdum
-      READ (10, 1) cdum
-      READ (10, *) fsrt
-      READ (10, 1) rtravel
-      READ (10, *) cfd
-      READ (10, 1) frechet
-      READ (10, *) wttf
-      READ (10, 1) travelt
-      READ (10, *) wrgf
-      READ (10, 1) wrays
-1     FORMAT(a30)
-      CLOSE (10)
+!!print *,snb
+
+!      OPEN (UNIT=10, FILE='fm2dss.in', STATUS='old')
+!      READ (10, 1) cdum
+!      READ (10, 1) cdum
+!      READ (10, 1) cdum
+!      READ (10, 1) cdum !sources
+!      READ (10, 1) cdum !receivers
+!      READ (10, 1) cdum !otimes
+!      READ (10, 1) cdum !grid
+!      READ (10, *) cdum !gdx, gdz
+!      READ (10, *) cdum !asgr
+!      READ (10, *) cdum !sgdl, sgs
+!      READ (10, *) cdum !earth
+!      READ (10, *) cdum !fom
+!      READ (10, *) cdum ! snb
+!      READ (10, 1) cdum
+!      READ (10, 1) cdum
+!      READ (10, 1) cdum
+!      READ (10, *) fsrt
+!      READ (10, 1) rtravel
+!      READ (10, *) cfd
+!      READ (10, 1) frechet
+!      READ (10, *) wttf
+!      READ (10, 1) travelt
+!      READ (10, *) wrgf
+!      READ (10, 1) wrays
+!1     FORMAT(a30)
+!      CLOSE (10)
+!      
+      
+!!      print *,snb
 !
 ! Call a subroutine which reads in the velocity grid
 !
-!   CALL gridder(grid)
+ ! CALL gridder2(grid)
 !
 ! Read in all source coordinates.
 !
@@ -2477,18 +3068,18 @@ CONTAINS
 ! Read in source-receiver associations
 !
 !
-!      OPEN (UNIT=10, FILE=otimes, status='old')
-!      ALLOCATE (srs(nrc, nsrc), STAT=checkstat)
-!      IF (checkstat > 0) THEN
-!         WRITE (6, *) 'Error with ALLOCATE: PROGRAM fmmin2d: REAL srs'
-!      END IF
-!      DO i = 1, nsrc
-!         DO j = 1, nrc
-!            READ (10, *) srs(j, i)
-!         END DO
-!      END DO
-!      CLOSE (10)
-!
+!!     OPEN (UNIT=10, FILE=otimes, status='old')
+!!     ALLOCATE (srs(nrc, nsrc), STAT=checkstat)
+!!     IF (checkstat > 0) THEN
+!!        WRITE (6, *) 'Error with ALLOCATE: PROGRAM fmmin2d: REAL srs'
+!!     END IF
+!!     DO i = 1, nsrc
+!!        DO j = 1, nrc
+!!           READ (10, *) srs(j, i)
+!!        END DO
+!!     END DO
+!!     CLOSE (10)
+
 ! Now work out, source by source, the first-arrival traveltime
 ! field plus source-receiver traveltimes
 ! and ray paths if required. First, allocate memory to the
@@ -2501,30 +3092,30 @@ CONTAINS
 !
 ! Open file for source-receiver traveltime output if required.
 !
-!!      IF (fsrt .eq. 1) THEN
-!!         OPEN (UNIT=10, FILE=rtravel, STATUS='unknown')
-!!      END IF
+!      IF (fsrt .eq. 1) THEN
+!         OPEN (UNIT=10, FILE=rtravel, STATUS='unknown')
+!      END IF
 !
 ! Open file for ray path output if required
 !
       IF (wrgf .NE. 0) THEN
          !OPEN(UNIT=40,FILE=wrays,FORM='unformatted',STATUS='unknown')
-         OPEN (UNIT=40, FILE=wrays, STATUS='unknown')
+!         OPEN (UNIT=40, FILE=wrays, STATUS='unknown')
          IF (wrgf .GT. 0) THEN
             tnr = nrc
          ELSE
             tnr = nsrc*nrc
          END IF
-         WRITE (40, *) tnr
+!         WRITE (40, *) tnr
          rbint = 0
       END IF
 !
 ! Open file for Frechet derivative output if required.
 !
-      IF (cfd .EQ. 1) THEN
-         ! OPEN(UNIT=50,FILE=frechet,FORM='unformatted',STATUS='unknown')
-         OPEN (UNIT=50, FILE=frechet, STATUS='unknown')
-      END IF
+!      IF (cfd .EQ. 1) THEN
+!         ! OPEN(UNIT=50,FILE=frechet,FORM='unformatted',STATUS='unknown')
+!         OPEN (UNIT=50, FILE=frechet, STATUS='unknown')
+!      END IF
 !
 ! Allocate memory for node status and binary trees
 !
@@ -2709,10 +3300,14 @@ CONTAINS
 !
             CALL travel(x, z, urg)
          END IF
+
+
+
 !
 !  Find source-receiver traveltimes if required
 !
          IF (fsrt .eq. 1) THEN
+         	!	print *,"### srtimes2"
             CALL srtimes2(x, z, i)
          END IF
 !
@@ -2721,35 +3316,47 @@ CONTAINS
 !  if required.
 !
          IF (wrgf .eq. i .OR. wrgf .LT. 0 .OR. cfd .EQ. 1) THEN
-            CALL rpaths(wrgf, i, cfd, x, z)
+        ! 		print *,"### rpaths2"
+            CALL rpaths2(wrgf, i, cfd, x, z)
          END IF
+             
 !
 !  If required, write traveltime field to file
 !
-         IF (wttf .eq. i) THEN
-            !OPEN(UNIT=30,FILE=travelt,FORM='unformatted',STATUS='unknown')
-            OPEN (UNIT=30, FILE=travelt, STATUS='unknown')
-            WRITE (30, *) goxd, gozd
-            WRITE (30, *) nnx, nnz
-            WRITE (30, *) dnxd, dnzd
-            DO j = 1, nnz
-               DO k = 1, nnx
-                  WRITE (30, *) ttn(j, k)
-               END DO
+ !        IF (wttf .eq. i) THEN
+ !           !OPEN(UNIT=30,FILE=travelt,FORM='unformatted',STATUS='unknown')
+ !           OPEN (UNIT=30, FILE=travelt, STATUS='unknown')
+ !           WRITE (30, *) goxd, gozd
+ !           WRITE (30, *) nnx, nnz
+ !           WRITE (30, *) dnxd, dnzd
+ !           DO j = 1, nnz
+ !              DO k = 1, nnx
+ !                 WRITE (30, *) ttn(j, k)
+ !              END DO
+ !           END DO
+ !           CLOSE (30)
+ !        END IF
+         
+         IF (wttf .eq. 1) THEN
+        DO j = 1, nnz
+            DO k = 1, nnx
+                  tfields(i,j,k)=ttn(j, k)
             END DO
-            CLOSE (30)
-         END IF
+        END DO
+                  
+         end if
+ 
          IF (asgr .EQ. 1) DEALLOCATE (ttnr, nstsr)
       END DO
 !
 ! Close rtravel if required
 !
-      IF (fsrt .eq. 1) THEN
-         CLOSE (10)
-      END IF
-      IF (cfd .EQ. 1) THEN
-         CLOSE (50)
-      END IF
+!     IF (fsrt .eq. 1) THEN
+!        CLOSE (10)
+!     END IF
+!     IF (cfd .EQ. 1) THEN
+!        CLOSE (50)
+!     END IF
       IF (wrgf .NE. 0) THEN
 !
 !  Notify about ray-boundary intersections if required.
@@ -2782,7 +3389,7 @@ CONTAINS
          WRITE (6, *) 'Error with DEALLOCATE: PROGRAM fmmin2d: final deallocate'
       END IF
       WRITE (6, *) 'Program fm2dss has finished successfully!'
-   END SUBROUTINE compute
+   END SUBROUTINE track
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! MAIN PROGRAM
