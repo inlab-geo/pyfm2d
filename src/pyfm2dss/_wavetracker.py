@@ -82,7 +82,10 @@ class WaveTracker:
             For a complete explanation of input parameters see Rawlinson's instruction manual for fmtomo package
             (https://iearth.edu.au/codes/FMTOMO/instructions.pdf)
         '''
+        verbose = True
 
+        if(verbose): print('inside calc_wavefronts'
+                           )
         recs = recs.reshape(-1, 2)
         srcs = srcs.reshape(-1, 2)
         if(tfieldsource+1 > len(srcs)): # source requested for travel time field does not exist
@@ -110,6 +113,8 @@ class WaveTracker:
         lfrechet=0                    # bool to calculate Frechet derivatives of travel times w.r.t. slownesses (0=no,1=yes)
         if(frechet): lfrechet = 1     
         
+        
+        if(verbose): print('about to call set_solver_options')
         self.fmm.set_solver_options(dicex,dicey,
                                     int(sourcegridrefine),
                                     sourcedicelevel,
@@ -122,60 +127,105 @@ class WaveTracker:
                                     tfieldsource+1,
                                     lpaths)
 
-
-        #write_rs(recs,srcs,wdir)    # write out sources and receiver files
         
-        self.fmm.set_sources(srcs[:,1],srcs[:,0]     # set sources
-
+        if(verbose): print('about to call set_sources')
+        self.fmm.set_sources(srcs[:,1],srcs[:,0])     # set sources
+        
+        if(verbose): print('about to call set_receivers')
         self.fmm.set_receivers(recs[:,1],recs[:,0])  # set receivers
 
-        #self.fmm.set_velocity_model(nvx, nvz, goxd, gozd, dvxd, dvzd, velv)
 
-
-        noncushion,nodemap = write_gridc(v,extent,wdir) # write data for input velocity model file gridc.txc
-    
-        write_otimes([[True]*len(recs)]*len(srcs),wdir) # write out rays to be calculated
-    
-        # run fmst wavefront tracker code from command line
-    
-        command = "cd "+wdir+"; ./fm2dss"
-        out = subprocess.run(command,stdout=subprocess.PIPE, text=True,shell=True)
-        if(verbose): print(' Message from fmm2dss:',out.stdout)
-        if(out.returncode != 0):
-            print(' The process returned with errorcode:',out.returncode)
-            print(' stdout: \n',out.stdout)
-            print(' stderr: \n',out.stderr)
-            return
+        if(verbose): print('about to call build_velocitygrid')
+        nvx,nvy,dlat,dlong,vc,noncushion,nodemap = self.build_velocitygrid(v,extent) # add cushion layer to velocity model and get parameters
         
+        if(verbose): print('about to call set_velocity_model')
+        
+        self.fmm.set_velocity_model(nvx, nvy, extent[3], extent[0], dlat, dlong, vc)
+        
+        srs = np.ones((len(recs),len(srcs))) # set up time calculation between all sources and receivers
+        
+        if(verbose): print('about to call set_source_receiver_associations')
+        self.fmm.set_source_receiver_associations(srs)
+
+        if(verbose): print('about to call allocate_result_arrays')
+        self.fmm.allocate_result_arrays() # allocate memory for Fortran arrays
+    
+        if(verbose): print('about to call track')
+        self.fmm.track() # run fmst wavefront tracker code 
+
+        if(verbose): print('collecting results')
         # collect results
         if(times):
-            ttimes = read_fmst_ttimes(wdir+'/'+tfilename)
+            ttimes = self.fmm.get_traveltimes()
             if(not degrees): ttimes*= kms2deg # adjust travel times because inputs are not in degrees
     
         if(paths): 
-            raypaths = read_fmst_raypaths(wdir+'/'+rfilename)
+            raypaths = self.fmm.get_raypaths()
     
         if(frechet):
-            frechetvals = read_fmst_frechet(wdir+'/'+ffilename,noncushion,nodemap)
+            #frechetvals = read_fmst_frechet(wdir+'/'+ffilename,noncushion,nodemap)
+            frechetvals = self.fmm.get_frechet_derivatives() # THIS IS PROBABLY LACKS ADJUSTMENT FOR CUSHION NODES see routine read_fmst_frechet in _core.py 
             if(not degrees): frechetvals*= kms2deg # adjust travel times because inputs are not in degrees
             if(not velocityderiv): 
                 x2 = -(v*v).reshape(-1)
                 frechetvals = frechetvals.multiply(x2)
 
         if(tfieldsource>=0):
-            tfieldvals = read_fmst_wave(wdir+'/'+wfilename)
+            tfieldvals = self.fmm.get_traveltime_fields()
             if(not degrees): tfieldvals*= kms2deg # adjust travel times because inputs are not in degrees
         
-        #   build class object to return
-        result = fmmResult()
+        #   add required information to class instances
     
-        if(times): result.setTimes(ttimes)
-        if(paths): result.setPaths(raypaths)
-        if(frechet): result.setFrechet(frechetvals)
-        if(tfieldsource >-1): result.setTfield(tfieldvals,tfieldsource) # set traveltime field and source id
-        return result
+        if(times): self.setTimes(ttimes)
+        if(paths): self.setPaths(raypaths)
+        if(frechet): self.setFrechet(frechetvals)
+        if(tfieldsource >-1): self.setTfield(tfieldvals,tfieldsource) # set traveltime field and source id
+        return
 
-		
+    def build_velocitygrid(self,v,extent): # add cushion nodes about velocity model to be compatible with fm2dss.f90 input
+        #
+        # here extent[3],extent[2] is N-S range of grid nodes
+        #      extent[0],extent[1] is W-E range of grid nodes
+        nx,ny = v.shape
+        dlat, dlong = (extent[3]-extent[2])/(ny-1),(extent[1]-extent[0])/(nx-1) # grid node spacing in lat and long
+
+        # gridc.vtx requires a single cushion layer of nodes surrounding the velocty model
+        # build velocity model with cushion velocities
+
+        noncushion = np.zeros((nx+2,ny+2),dtype=bool) # bool array to identify cushion and non cushion nodes
+        noncushion[1:nx+1,1:ny+1] = True
+    
+        # mapping from cushion indices to non cushion indices
+        nodemap = np.zeros((nx+2,ny+2),dtype=int)
+        nodemap[1:nx+1,1:ny+1] = np.array(range((nx*ny))).reshape((nx,ny))
+        nodemap=nodemap[:,::-1]
+
+        # build velocity nodes
+        # additional boundary layer of velocities are duplicates of the nearest actual velocity value.
+        vc = np.ones((nx+2,ny+2))
+        vc[1:nx+1,1:ny+1] = v
+        vc[1:nx+1,0] = v[:,0]   # add velocities in the cushion boundary layer
+        vc[1:nx+1,-1] = v[:,-1] # add velocities in the cushion boundary layer
+        vc[0,1:ny+1] = v[0,:]   # add velocities in the cushion boundary layer
+        vc[-1,1:ny+1] = v[-1,:] # add velocities in the cushion boundary layer
+        vc[0,0],vc[0,-1],vc[-1,0],vc[-1,-1] = v[0,0],v[0,-1],v[-1,0],v[-1,-1]
+        vc=vc[:,::-1]
+
+        # write out gridc.vtx file
+        #dummy = 1.0 # uncertainty in velocity grid parameter (not required here)
+        #f = open(wdir+"/gridc.vtx", "w+")
+        #f.write(" {} {} \n".format(ny,nx)) # Number of grid nodes in latitude and longitude 
+        #f.write(" {} {} \n".format(extent[3],extent[0])) # origin of computational grid
+        #f.write(" {} {} \n\n".format(dlat, dlong)) # grid node spacing in lat and long
+ 
+        #for i in range(nx+2):
+        #    for j in range(ny+2):
+        #        f.write(" {} {} \n".format(vc[i,j],dummy))
+        #        f.write("\n")
+        #        f.close()
+    
+        return nx,ny,dlat,dlong,vc,noncushion,nodemap.flatten()		
+    
 class gridModel(object): # This is for the original regular model grid (without using the basis.py package)
     
     def __init__(self,velocities,extent=(0,1,0,1)):
