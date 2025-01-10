@@ -5,6 +5,7 @@ import faulthandler
 faulthandler.enable()
 
 import pyfm2dss
+import sys
 
 fmm = pyfm2dss.FastMarchingMethod()
 
@@ -37,6 +38,10 @@ fmm.read_receivers("receivers.dat")
 rcx, rcz = fmm.get_receivers()
 print('rcx',rcx,'\nrcz',rcz)
 fmm.set_receivers(rcx, rcz)
+rcx2, rcz2 = fmm.get_receivers()
+print('Recovered\n','rcx',rcx2,'\nrcz',rcz2)
+
+sys.exit()
 
 print('> read_source_receiver_associations')
 fmm.read_source_receiver_associations("otimes.dat")

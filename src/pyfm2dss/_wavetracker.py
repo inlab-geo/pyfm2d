@@ -45,7 +45,7 @@ class WaveTracker:
         self.frechet = f.copy()
         
     def setTfield(self,w,source):
-        self.tfield = w.copy()
+        self.tfield = w[source].copy()
         self.tfieldsource = source
         
     def calc_wavefronts(self,v,recs,srcs,
@@ -65,7 +65,7 @@ class WaveTracker:
             paths, bool                : raypath option (True=calculate ad return ray paths)
             frechet, bool              : frechet derivative option (True=calculate and return frechet derivative matrix for raypths in each cell)
             times, bool                : travel times derivative option (True=calculate and travel times)
-            tfieldsource, int          : source id to calculate travel time field (0=none,>0=source id)
+            tfieldsource, int          : source id to calculate travel time field (<0=none,>=0=source id)
             sourcegridrefine, bool     : Apply sourcegrid refinement (default=True)
             sourcedicelevel, int       : Source discretization level. Number of sub-divisions per cell (default=5, i.e. 1 model cell becomes 5x5 sub-cells)
             sourcegridsize, int        : Number of model cells to refine about source at sourcedicelevel (default=10, i.e. 10x10 cells are refines about source)
@@ -79,15 +79,17 @@ class WaveTracker:
             dicey, int                 : y-subgrid discretization level for B-spline interpolation of input model (default=8)
                 
                                     
-            For a complete explanation of input parameters see Rawlinson's instruction manual for fmtomo package
-            (https://iearth.edu.au/codes/FMTOMO/instructions.pdf)
+            Notes:
+                    Internally variables are converted to numpy.float32 to be consistent with Fortran code fm2dss.f90
+            
         '''
-        verbose = True
-
-        if(verbose): print('inside calc_wavefronts'
-                           )
-        recs = recs.reshape(-1, 2)
-        srcs = srcs.reshape(-1, 2)
+        verbose=True
+        
+        if(verbose): print('inside calc_wavefronts')
+        
+        recs = recs.reshape(-1, 2) # ensure receiver array is 2D and float32
+        srcs = srcs.reshape(-1, 2) # ensure source array is 2D and float32
+        
         if(tfieldsource+1 > len(srcs)): # source requested for travel time field does not exist
             print('Error: Travel time field corresponds to source:',tfieldsource,'\n',
                   '      but total number of sources is',len(srcs),
@@ -96,16 +98,9 @@ class WaveTracker:
         # fmst expects input spatial co-ordinates in degrees and velocities in kms/s so we adjust (unless degrees=True)
 
         kms2deg = 180./(earthradius*np.pi)
-
-        #write out input files for Fast Marching wavefront tracker fmst
-
-        #write_fm2dss_input(wdir,paths=paths,frechet=frechet,times=times,tfieldsource=tfieldsource+1,
-        #                   dicex=dicex,dicey=dicey,sourcegrid=sourcegrid,sourcedice=sourcedice,
-        #                   sourcegridsize=sourcegridsize,earthradius=earthradius,schemeorder=schemeorder,nbsize=nbsize,
-        #                   tfilename=tfilename,ffilename=ffilename,wfilename=wfilename,rfilename=rfilename)  # write out control file
     
         lpaths = 0                    # Write out raypaths (<0=all,0=no,>0=source id)
-        if(paths): lpaths=-1          # only allow all or none
+        if(paths): lpaths=1          # only allow all or none
     
         lttimes=0                     # int to calculate travel times (y=1,n=0)
         if(times): lttimes = 1
@@ -113,36 +108,50 @@ class WaveTracker:
         lfrechet=0                    # bool to calculate Frechet derivatives of travel times w.r.t. slownesses (0=no,1=yes)
         if(frechet): lfrechet = 1     
         
+        tsource = 0
+        if(tfieldsource>=0): tsource = 1 # int to calculate travel fields (0=no,1=all)
         
         if(verbose): print('about to call set_solver_options')
-        self.fmm.set_solver_options(dicex,dicey,
-                                    int(sourcegridrefine),
-                                    sourcedicelevel,
-                                    sourcegridsize,
-                                    earthradius,
-                                    schemeorder,
-                                    nbsize,
-                                    lttimes,
-                                    lfrechet,
-                                    tfieldsource+1,
-                                    lpaths)
+        self.fmm.set_solver_options(np.int32(dicex),   #set solver options
+                                    np.int32(dicey),
+                                    np.int32(sourcegridrefine),
+                                    np.int32(sourcedicelevel),
+                                    np.int32(sourcegridsize),
+                                    np.float32(earthradius),
+                                    np.int32(schemeorder),
+                                    np.float32(nbsize),
+                                    np.int32(lttimes),
+                                    np.int32(lfrechet),
+                                    np.int32(tsource),
+                                    np.int32(lpaths))
 
         
         if(verbose): print('about to call set_sources')
-        self.fmm.set_sources(srcs[:,1],srcs[:,0])     # set sources
+        scx = np.float32(srcs[:,0])
+        scy = np.float32(srcs[:,1])
+
+        self.fmm.set_sources(scy,scx)     # set sources (ordering inherited from fm2dss.f90)
         
         if(verbose): print('about to call set_receivers')
-        self.fmm.set_receivers(recs[:,1],recs[:,0])  # set receivers
-
+        rcx = np.float32(recs[:,0])
+        rcy = np.float32(recs[:,1])
+        self.fmm.set_receivers(rcy,rcx)  # set receivers
 
         if(verbose): print('about to call build_velocitygrid')
-        nvx,nvy,dlat,dlong,vc,noncushion,nodemap = self.build_velocitygrid(v,extent) # add cushion layer to velocity model and get parameters
+        nvx,nvy,dlat,dlong,vc = self.build_velocitygrid(v,extent) # add cushion layer to velocity model and get parameters
         
         if(verbose): print('about to call set_velocity_model')
         
+        nvx = np.int32(nvx)
+        nvy = np.int32(nvy)
+        extent = np.array(extent,dtype=np.float32)
+        dlat = np.float32(dlat)
+        dlong = np.float32(dlong)
+        vc = vc.astype(np.float32)
+        
         self.fmm.set_velocity_model(nvx, nvy, extent[3], extent[0], dlat, dlong, vc)
         
-        srs = np.ones((len(recs),len(srcs))) # set up time calculation between all sources and receivers
+        srs = np.ones((len(recs),len(srcs)),dtype=np.int32) # set up time calculation between all sources and receivers
         
         if(verbose): print('about to call set_source_receiver_associations')
         self.fmm.set_source_receiver_associations(srs)
@@ -180,6 +189,9 @@ class WaveTracker:
         if(paths): self.setPaths(raypaths)
         if(frechet): self.setFrechet(frechetvals)
         if(tfieldsource >-1): self.setTfield(tfieldvals,tfieldsource) # set traveltime field and source id
+
+        self.fmm.deallocate_result_arrays()
+        
         return
 
     def build_velocitygrid(self,v,extent): # add cushion nodes about velocity model to be compatible with fm2dss.f90 input
@@ -224,7 +236,10 @@ class WaveTracker:
         #        f.write("\n")
         #        f.close()
     
-        return nx,ny,dlat,dlong,vc,noncushion,nodemap.flatten()		
+        self.noncushion = noncushion
+        self.nodemap = nodemap.flatten()
+        
+        return nx,ny,dlat,dlong,vc
     
 class gridModel(object): # This is for the original regular model grid (without using the basis.py package)
     

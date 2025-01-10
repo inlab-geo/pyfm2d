@@ -2795,8 +2795,8 @@ CONTAINS
 	!
     ! ttimes  - source receiver travel times - fsrt
     ! frechet - frechet derivatives - cfd
-    ! rpaths  - raypaths - wttf
-    ! tfields  - travetime field - wrgf
+    ! rpaths  - raypaths - wrgf
+    ! tfields  - travetime field - wttf
     !	
 
 
@@ -2817,7 +2817,7 @@ CONTAINS
     	frechet_nnz=0
     end if
 
-   	if (wttf .eq. 1) then
+   	if (wrgf .eq. 1) then
    		!!	print*,">>> paths"
     	npaths=nsrc*nrc
     	max_nppts=(nvx*nvz)
@@ -2827,7 +2827,7 @@ CONTAINS
     	nppts=0
     end if
     
-    if (wrgf .eq. 1) then 
+    if (wttf .eq. 1) then 
     	!!	print*,">>> tfields"
     	allocate(tfields(nsrc,nnz,nnx))    
     end if
@@ -2851,14 +2851,14 @@ CONTAINS
     	deallocate(frechet_val)
     end if
 
-   	if (wttf .eq. 1) then
+   	if (wrgf .eq. 1) then
    	   	!!		print*,">>> paths"
 
     	deallocate(paths)
     	deallocate(nppts)
     end if
     
-    if (wrgf .eq. 1) then 
+    if (wttf .eq. 1) then 
         !!		print*,">>> tfields"
 
     deallocate(tfields)    
@@ -3388,7 +3388,7 @@ CONTAINS
       IF (checkstat > 0) THEN
          WRITE (6, *) 'Error with DEALLOCATE: PROGRAM fmmin2d: final deallocate'
       END IF
-      WRITE (6, *) 'Program fm2dss has finished successfully!'
+      !WRITE (6, *) 'Program fm2dss has finished successfully!'
    END SUBROUTINE track
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
