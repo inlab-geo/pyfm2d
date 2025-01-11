@@ -131,7 +131,7 @@ CONTAINS
       IF (sw .eq. 1) then
          isx = 90.0 - isx*180.0/pi
          isz = isz*180.0/pi
-         WRITE (6, *) "Source lies outside bounds of model (lat,long)= ", isx, isz
+         WRITE (6, *) "1: Source lies outside bounds of model (lat,long)= ", isx, isz
          WRITE (6, *) "TERMINATING PROGRAM!!!"
          STOP
       END IF
@@ -3153,9 +3153,12 @@ CONTAINS
             IF (isx .lt. 1 .or. isx .gt. nnx) sw = 1
             IF (isz .lt. 1 .or. isz .gt. nnz) sw = 1
             IF (sw .eq. 1) then
+               ! MS added to debug
+               !write (6, *)" x, gox,dnx,nnx, isx",x,gox,dnx,nnx,isx
+               !write (6, *)" z, goz,dnz,nnz, isz",z,goz,dnz,nnz,isz
                isx = 90.0 - isx*180.0/pi
                isz = isz*180.0/pi
-               WRITE (6, *) "Source lies outside bounds of model (lat,long)= ", isx, isz
+               WRITE (6, *) "2: Source lies outside bounds of model (lat,long)= ", isx, isz
                WRITE (6, *) "TERMINATING PROGRAM!!!"
                STOP
             END IF
@@ -3585,6 +3588,8 @@ CONTAINS
 !
 ! Loop through all sources and find traveltime fields
 !
+     ! MS added to debug
+     !write(6,*) " scx",scx,"scz",scz
       DO i = 1, nsrc
          x = scx(i)
          z = scz(i)
@@ -3615,7 +3620,7 @@ CONTAINS
             IF (sw .eq. 1) then
                isx = 90.0 - isx*180.0/pi
                isz = isz*180.0/pi
-               WRITE (6, *) "Source lies outside bounds of model (lat,long)= ", isx, isz
+               WRITE (6, *) "3: Source lies outside bounds of model (lat,long)= ", isx, isz
                WRITE (6, *) "TERMINATING PROGRAM!!!"
                STOP
             END IF

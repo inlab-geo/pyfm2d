@@ -58,43 +58,65 @@ mp[2,2] = 0.9
 mp[2,1] = 1.3
 g.setVelocity(mp)
 
+#-------------------------------------------------------
 
 srcs = np.array([0.1,0.15]) # source (x,y)
 
 recs = np.array([[0.8,1],[1.,0.6]]) # receivers [(x1,y1),(x2,y2)]
 
+#-------------------------------------------------------
+from scipy.stats import multivariate_normal
+
+def get_gauss_model(extent,nx,ny,factor=1.): # build two gaussian anomaly velocity model
+    vc1 = 1700.*factor                           # velocity of circle 1
+    vc2 = 2300.*factor                           # velocity of circle 2
+    vb = 2000.*factor                            # background velocity
+    dx = (extent[1]-extent[0])/nx                           # cell width
+    dy = (extent[3]-extent[2])/ny                           # cell height
+    xc = np.linspace(extent[0],extent[1],nx)    # cell centre
+    yc = np.linspace(extent[2],extent[3],ny)    # cell centre
+    X,Y = np.meshgrid(xc, yc,indexing='ij')     # cell centre mesh
+
+    # Multivariate Normal
+    dex = extent[1]-extent[0]
+    dey = extent[3]-extent[2]
+    c1x = extent[0] + (7.0-extent[0])*dex/20.
+    c2x = extent[0] + (12.0-extent[0])*dex/20.
+    c1y = extent[0] + (22.0-extent[0])*dey/30.
+    c2y = extent[0] + (10.0-extent[0])*dey/30.
+    s1 = 6.0*dex/20.
+    s2 = 10.0*dex/20.
+    c1,sig1 = np.array([c1x,c1y])*factor,s1*(factor**2)      # location and radius of centre of first circle
+    c2,sig2 = np.array([c2x,c2y])*factor,s2*(factor**2)     # location and radius of centre of first circle
+    rv1 = multivariate_normal(c1, [[sig1, 0], [0, sig1]])
+    rv2 = multivariate_normal(c2, [[sig2, 0], [0, sig2]])
+
+    # Probability Density
+    pos = np.empty(X.shape + (2,))
+    pos[:, :, 0] = X
+    pos[:, :, 1] = Y
+    gauss1,gauss2 = rv1.pdf(pos),rv2.pdf(pos)
+    return   vb*np.ones([nx,ny])  + (vc1-vb)*gauss1/np.max(gauss1) + (vc2-vb)*gauss2/np.max(gauss2)
+
+
+factor = 1.
+extent = [0.0, 20.0*factor, 0.0, 30.0*factor]
+#m=get_spherical_model(extent,32,48)
+m = get_gauss_model(extent,32,48)
+g=wt.basisModel(m,extent=extent)
+recs = g.generateSurfacePoints(10,extent=extent,surface=[False,True,False,False],addCorners=False) # generate receivers around edge
+srcs = g.generateSurfacePoints(10,extent=extent,surface=[True,False,False,False],addCorners=False) # generate receivers around edge
+
+#-------------------------------------------------------
 v = g.getVelocity()
 
 # run wave front tracker
 myfmm = wt.WaveTracker()
 
-# test source and receiver
-
-recs = recs.reshape(-1, 2)
-srcs = srcs.reshape(-1, 2)
-
-rcy = np.float32(recs[:,1])
-rcx = np.float32(recs[:,0])
-
-myfmm.fmm.set_receivers(rcy,rcx)  # set receivers
-
-scy = np.float32(srcs[:,1])
-scx = np.float32(srcs[:,0])
-
-myfmm.fmm.set_sources(scy,scx)     # set sources
-
-scyo, scxo = myfmm.fmm.get_sources()
-
-print('Source\n','Original',srcs,'\n','recovered',scxo, scyo)
-
-rcyo, rcxo = myfmm.fmm.get_receivers()
-
-print('Receivers\n','Original',recs[:,0],recs[:,1],'\n','recovered',rcxo, rcyo)
-
 # test options
 
-paths=True
-frechet=True
+paths=False
+frechet=False
 times=True
 tfieldsource=-1
 tfieldsource=0
@@ -106,7 +128,7 @@ schemeorder=1
 nbsize=0.5
 degrees=False
 velocityderiv=False
-extent=[0.,1.,0.,1.]
+#extent=[0.,1.,0.,1.]
 dicex=8
 dicey=8
 lpaths,lttimes,lfrechet = 0,0,0                   
@@ -144,7 +166,7 @@ dlat = np.float32(dlat)
 dlong = np.float32(dlong)
 vc = vc.astype(np.float32)
         
-myfmm.fmm.set_velocity_model(nvx, nvy, extent[3], extent[0], dlat, dlong, vc)
+myfmm.fmm.set_velocity_model(nvy, nvx, extent[3], extent[0], dlat, dlong, vc)
 
 nvxo, nvzo, goxd, gozd, dvxd, dvzd, velv = myfmm.fmm.get_velocity_model()
 
@@ -153,19 +175,43 @@ print('Recovered velocity paramaters: ',nvxo,nvzo,goxd, gozd, dvxd, dvzd)
 print('Original velocity field: \n',vc)
 print('Recovered velocity field: \n',velv)
 
+# test source and receiver
+
+recs = recs.reshape(-1, 2)
+srcs = srcs.reshape(-1, 2)
+
+rcy = np.float32(recs[:,1])
+rcx = np.float32(recs[:,0])
+
+myfmm.fmm.set_receivers(rcy,rcx)  # set receivers
+
+scy = np.float32(srcs[:,1])
+scx = np.float32(srcs[:,0])
+
+myfmm.fmm.set_sources(scy,scx)     # set sources
+
+scyo, scxo = myfmm.fmm.get_sources()
+
+print('Source\n','Original',srcs,'\n','recovered',scxo, scyo)
+
+rcyo, rcxo = myfmm.fmm.get_receivers()
+
+print('Receivers\n','Original',recs[:,0],recs[:,1],'\n','recovered',rcxo, rcyo)
+
 # test source/receiver associations
 srs = np.ones((len(recs),len(srcs)),dtype=np.int32) # set up time calculation between all sources and receivers
         
 myfmm.fmm.set_source_receiver_associations(srs)
+
 srso = myfmm.fmm.get_source_receiver_associations()
 
 print('Original associations:\n' ,srs)
 print('Recovered associations:\n' ,srso)
 
+
 myfmm.fmm.allocate_result_arrays() # allocate memory for Fortran arrays
 
 myfmm.fmm.track()
-
 # check results
 kms2deg = 180./(earthradius*np.pi)
 

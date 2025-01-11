@@ -99,7 +99,7 @@ class WaveTracker:
         kms2deg = 180./(earthradius*np.pi)
     
         lpaths = 0                    # Write out raypaths (<0=all,0=no,>0=source id)
-        if(paths): lpaths=1          # only allow all or none
+        if(paths): lpaths = 1          # only allow all or none
     
         lttimes=0                     # int to calculate travel times (y=1,n=0)
         if(times): lttimes = 1
@@ -125,22 +125,17 @@ class WaveTracker:
                                     np.int32(lpaths))
 
         
-        if(verbose): print('about to call set_sources')
         scx = np.float32(srcs[:,0])
         scy = np.float32(srcs[:,1])
 
         self.fmm.set_sources(scy,scx)     # set sources (ordering inherited from fm2dss.f90)
         
-        if(verbose): print('about to call set_receivers')
         rcx = np.float32(recs[:,0])
         rcy = np.float32(recs[:,1])
         self.fmm.set_receivers(rcy,rcx)  # set receivers
 
-        if(verbose): print('about to call build_velocitygrid')
         nvx,nvy,dlat,dlong,vc = self.build_velocitygrid(v,extent) # add cushion layer to velocity model and get parameters
-        
-        if(verbose): print('about to call set_velocity_model')
-        
+                
         nvx = np.int32(nvx)
         nvy = np.int32(nvy)
         extent = np.array(extent,dtype=np.float32)
@@ -148,20 +143,16 @@ class WaveTracker:
         dlong = np.float32(dlong)
         vc = vc.astype(np.float32)
         
-        self.fmm.set_velocity_model(nvx, nvy, extent[3], extent[0], dlat, dlong, vc)
+        self.fmm.set_velocity_model(nvy, nvx, extent[3], extent[0], dlat, dlong, vc)
         
         srs = np.ones((len(recs),len(srcs)),dtype=np.int32) # set up time calculation between all sources and receivers
         
-        if(verbose): print('about to call set_source_receiver_associations')
         self.fmm.set_source_receiver_associations(srs)
 
-        if(verbose): print('about to call allocate_result_arrays')
         self.fmm.allocate_result_arrays() # allocate memory for Fortran arrays
     
-        if(verbose): print('about to call track')
         self.fmm.track() # run fmst wavefront tracker code 
 
-        if(verbose): print('collecting results')
         # collect results
         if(times):
             ttimes = self.fmm.get_traveltimes()
