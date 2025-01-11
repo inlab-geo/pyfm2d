@@ -83,7 +83,6 @@ class WaveTracker:
                     Internally variables are converted to numpy.float32 to be consistent with Fortran code fm2dss.f90
             
         '''
-        verbose=True
         
         if(verbose): print('inside calc_wavefronts')
         
@@ -175,9 +174,9 @@ class WaveTracker:
             #frechetvals = read_fmst_frechet(wdir+'/'+ffilename,noncushion,nodemap)
             frechetvals = self.fmm.get_frechet_derivatives() # THIS IS PROBABLY LACKS ADJUSTMENT FOR CUSHION NODES see routine read_fmst_frechet in _core.py 
             if(not degrees): frechetvals*= kms2deg # adjust travel times because inputs are not in degrees
-            if(not velocityderiv): 
-                x2 = -(v*v).reshape(-1)
-                frechetvals = frechetvals.multiply(x2)
+            #if(not velocityderiv): 
+            #    x2 = -(v*v).reshape(-1)
+            #    frechetvals = frechetvals.multiply(x2)
 
         if(tfieldsource>=0):
             tfieldvals = self.fmm.get_traveltime_fields()
@@ -263,6 +262,27 @@ class gridModel(object): # This is for the original regular model grid (without 
         assert self.velocities.shape == s.shape
         self.velocities = 1./s
         
+    def generateSurfacePoints(self,nPerSide,extent=(0,1,0,1),surface=[True,True,True,True],addCorners=True):
+        out = []
+        if surface[0]:
+            out+=[[extent[0],x] for x in np.linspace(extent[2],extent[3],nPerSide+2)[1:nPerSide+1]]
+        if surface[1]:
+            out+=[[extent[1],x] for x in np.linspace(extent[2],extent[3],nPerSide+2)[1:nPerSide+1]]
+        if surface[2]:
+            out+=[[x,extent[2]] for x in np.linspace(extent[0],extent[1],nPerSide+2)[1:nPerSide+1]]
+        if surface[3]:
+            out+=[[x,extent[3]] for x in np.linspace(extent[0],extent[1],nPerSide+2)[1:nPerSide+1]]
+        if addCorners:
+            if surface[0] or surface[2]:
+                out+=[[extent[0],extent[2]]]
+            if surface[0] or surface[3]:
+                out+=[[extent[0],extent[3]]]
+            if surface[1] or surface[2]:
+                out+=[[extent[1],extent[2]]]
+            if surface[1] or surface[3]:
+                out+=[[extent[1],extent[3]]]
+        return np.array(out)
+    
 class basisModel(object): # This is for a 2D model basis accessed through the package basis.py
     '''
 

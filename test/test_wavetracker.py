@@ -12,6 +12,8 @@ import pyfm2dss as wt
 #from tqdm import tqdm
 import sys
 
+# Simple test routine for wavetracker class and its use of low level class functions in pyfm2dss
+
 def build_velocitygrid(v,extent): # add cushion nodes about velocity model to be compatible with fm2dss.f90 input
     #
     # here extent[3],extent[2] is N-S range of grid nodes
@@ -43,7 +45,6 @@ def build_velocitygrid(v,extent): # add cushion nodes about velocity model to be
             
     return nx,ny,dlat,dlong,vc,noncushion,nodemap.flatten()
 
-# test routine for wavetracker class and its use of low level class functions in pyfm2dss
 
 m = np.array([[1,1.1,1.1,1.],
               [1.,1.2,1.4,1.3],
@@ -93,9 +94,10 @@ print('Receivers\n','Original',recs[:,0],recs[:,1],'\n','recovered',rcxo, rcyo)
 # test options
 
 paths=True
-frechet=False
+frechet=True
 times=True
 tfieldsource=-1
+tfieldsource=0
 sourcegridrefine=True
 sourcedicelevel=5
 sourcegridsize=10
@@ -177,9 +179,9 @@ if(paths):
 if(frechet):
     frechetvals = myfmm.fmm.get_frechet_derivatives() # THIS IS PROBABLY LACKS ADJUSTMENT FOR CUSHION NODES see routine read_fmst_frechet in _core.py 
     if(not degrees): frechetvals*= kms2deg # adjust travel times because inputs are not in degrees
-    if(not velocityderiv): 
-        x2 = -(v*v).reshape(-1)
-        frechetvals = frechetvals.multiply(x2)
+    #if(not velocityderiv):  THIS ONLY WORKS WHEN frechetvals has cushion removed otherwise they are not of teh same shape
+    #    x2 = -(v*v).reshape(-1)
+    #    frechetvals = frechetvals.multiply(x2)
 
 if(tfieldsource>=0):
     tfieldvals = myfmm.fmm.get_traveltime_fields()

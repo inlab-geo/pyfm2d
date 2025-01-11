@@ -2790,7 +2790,7 @@ CONTAINS
 
    subroutine allocate_result_arrays() bind(c, name="allocate_result_arrays")
 
-	! We don't know the size of some of the arrays beforhand thus we make an educated 
+	! We don't know the size of some of the arrays beforehand thus we make an educated 
 	! guess.
 	!
     ! ttimes  - source receiver travel times - fsrt
@@ -2810,7 +2810,7 @@ CONTAINS
        
   	if (cfd .EQ. 1) then
   		!!	print*,">>> frechet "
-  		max_frechet_nnz=nsrc*nrc*nvx*nvz
+  		max_frechet_nnz=nsrc*nrc*(nvx+2)*(nvz+2)
     	allocate(frechet_irow(max_frechet_nnz))
     	allocate(frechet_icol(max_frechet_nnz))
     	allocate(frechet_val(max_frechet_nnz))
@@ -2820,7 +2820,7 @@ CONTAINS
    	if (wrgf .eq. 1) then
    		!!	print*,">>> paths"
     	npaths=nsrc*nrc
-    	max_nppts=(nvx*nvz)
+    	max_nppts=(gdz*gdx*nvx*nvz)
     	allocate(paths(npaths,max_nppts,2))
     	allocate(nppts(npaths))
     	npaths=0

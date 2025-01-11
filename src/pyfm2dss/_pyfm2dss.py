@@ -319,7 +319,7 @@ class FastMarchingMethod:
         nrc = nrc_.value
 
         return scipy.sparse.csr_array(
-            (jval, (jrow, jcol)), shape=(nsrc * nrc, nvx * nvz)
+            (jval, (jrow, jcol)), shape=(nsrc * nrc, (nvx+2) * (nvz+2))
         )
 
     def get_raypaths(self):
