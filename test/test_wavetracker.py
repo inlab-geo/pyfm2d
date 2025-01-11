@@ -115,8 +115,13 @@ myfmm = wt.WaveTracker()
 
 # test options
 
+<<<<<<< Updated upstream
 paths=False
 frechet=False
+=======
+paths=True
+frechet=True
+>>>>>>> Stashed changes
 times=True
 tfieldsource=-1
 tfieldsource=0
