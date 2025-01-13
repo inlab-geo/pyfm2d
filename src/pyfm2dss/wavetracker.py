@@ -34,16 +34,16 @@ class WaveTracker:
     def __init__(self):
         self.fmm = FastMarchingMethod()
 
-    def setTimes(self, t):
+    def set_times(self, t):
         self.ttimes = t.copy()
 
-    def setPaths(self, p):
+    def set_paths(self, p):
         self.paths = p.copy()
 
-    def setFrechet(self, f):
+    def set_frechet(self, f):
         self.frechet = f.copy()
 
-    def setTfield(self, w, source):
+    def set_tfield(self, w, source):
         self.tfield = w[source].copy()
         self.tfield = self.tfield[
             :, ::-1
@@ -174,7 +174,7 @@ class WaveTracker:
         rcy = np.float32(recs[:, 1])
         self.fmm.set_receivers(rcy, rcx)  # set receivers
 
-        nvx, nvy, dlat, dlong, vc = self.build_velocitygrid(
+        nvx, nvy, dlat, dlong, vc = self.build_velocity_grid(
             v, extent
         )  # add cushion layer to velocity model and get parameters
 
@@ -245,13 +245,13 @@ class WaveTracker:
         #   add required information to class instances
 
         if times:
-            self.setTimes(ttimes)
+            self.set_times(ttimes)
         if paths:
-            self.setPaths(raypaths)
+            self.set_paths(raypaths)
         if frechet:
-            self.setFrechet(frechetvals)
+            self.set_frechet(frechetvals)
         if tfieldsource > -1:
-            self.setTfield(
+            self.set_tfield(
                 tfieldvals, tfieldsource
             )  # set traveltime field and source id
 
@@ -259,7 +259,7 @@ class WaveTracker:
 
         return
 
-    def build_velocitygrid(
+    def build_velocity_grid(
         self, v, extent
     ):  # add cushion nodes about velocity model to be compatible with fm2dss.f90 input
         #
@@ -317,21 +317,21 @@ class GridModel:  # This is for the original regular model grid (without using t
         # self.dicey = dicey
         self.extent = extent
 
-    def getVelocity(self):
+    def get_velocity(self):
         return self.velocities.copy()
 
-    def getSlowness(self):
+    def get_slowness(self):
         return 1.0 / self.velocities  # No copy needed as operation must return copy
 
-    def setVelocity(self, v):
+    def set_velocity(self, v):
         assert self.velocities.shape == v.shape
         self.velocities = v.copy()
 
-    def setSlowness(self, s):
+    def set_slowness(self, s):
         assert self.velocities.shape == s.shape
         self.velocities = 1.0 / s
 
-    def generateSurfacePoints(
+    def generate_surface_points(
         self,
         nPerSide,
         extent=(0, 1, 0, 1),
@@ -439,7 +439,7 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
 
         self.coeff_type = coeff_type  # need to know this for non-pixel bases
 
-    def getVelocity(self, nx=None, ny=None, returncoeff=False):
+    def get_velocity(self, nx=None, ny=None, returncoeff=False):
         """With no arguments this will return a velocity field.
         If bases are 2D pixels the keyword returncoeff is ignored
         If bases are not pixels and returncoeff is False, then a velocity field is evaluated and returned.
@@ -469,35 +469,35 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
                     return (
                         self.coeffs.copy()
                     )  # coefficients are velocities and so we return coefficients
-                return self.vref + self.getImage(
+                return self.vref + self.get_image(
                     nx=nx, ny=ny
                 )  # return a velocity field evaluated from basis summation
             else:
                 if returncoeff:
                     return (
-                        self.fitcoefficientsS2V()
+                        self.fit_coefficients_s2v()
                     )  # coefficients are slownesses and we need to find equivalent velocity coefficients
                 return 1.0 / (
-                    self.sref + self.getImage(nx=nx, ny=ny)
+                    self.sref + self.get_image(nx=nx, ny=ny)
                 )  # coefficients are slownesses and we must return a velocity field
 
     def basis_transform_matrix(self):
         if not self.A_calc:
             A = np.zeros((self.basis.nbases, self.nx * self.ny))
             for j in range(self.basis.nbases):
-                A[j] = self.getbasisImage(j, nx=self.nx, ny=self.ny).flatten()
+                A[j] = self.get_basis_image(j, nx=self.nx, ny=self.ny).flatten()
             self.A = A
             self.A_calc = True
         return self.A
 
-    def fitcoefficientsV2S(
+    def fit_coefficientes_v2s(
         self, nx=None, ny=None
     ):  # calculate slowness coefficients that correspond to a given set of velocity coefficients in model basis
         if nx == None:
             nx = self.nx
         if ny == None:
             ny = self.ny
-        vtarget = self.getVelocity(nx=nx, ny=ny) - self.vref
+        vtarget = self.get_velocity(nx=nx, ny=ny) - self.vref
         if not self.A_calc:
             A = self.basis_transform_matrix()
             self.A = A
@@ -506,7 +506,7 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
         )  # fit slownesses coefficients to slowness field
         return slowcoeff.reshape(self.nx, self.ny)
 
-    def fitcoefficientsS2V(
+    def fit_coefficients_s2v(
         self, nx=None, ny=None
     ):  # calculate velocity coefficients that correspond to a given set of slowness coefficients in model basis
         if nx == None:
@@ -514,7 +514,7 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
         if ny == None:
             ny = self.ny
         starget = (
-            self.getSlowness(nx=nx, ny=ny) - self.sref
+            self.get_slowness(nx=nx, ny=ny) - self.sref
         )  # get slowness field perturbation
         if not self.A_calc:
             A = self.basis_transform_matrix()
@@ -556,14 +556,14 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
         # self.setCoeffs(coeff)
         return velcoeff.reshape(self.nx, self.ny)
 
-    def getCoeffs(self):
+    def get_coeffs(self):
         return self.coeffs.copy()
 
-    def setCoeffs(self, c):
+    def set_coeffs(self, c):
         assert self.coeffs.shape == c.shape
         self.coeffs = c
 
-    def getSlowness(self, nx=None, ny=None, returncoeff=False):
+    def get_slowness(self, nx=None, ny=None, returncoeff=False):
         """With no arguments this will return a slowness field.
         If bases are 2D pixels the keyword returncoeff is ignored
         If bases are not pixels and returncoeff is False, then a slowness field is evaluated and returned at (nx,ny)
@@ -589,21 +589,21 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
             if self.coeff_type == "velocities":
                 if returncoeff:
                     return (
-                        self.fitcoefficientsV2S()
+                        self.fit_coefficientes_v2s()
                     )  # we need to find slowness coefficients from velocity coefficients here
                 return 1.0 / (
-                    self.vref + self.getImage(nx=nx, ny=ny)
+                    self.vref + self.get_image(nx=nx, ny=ny)
                 )  # return a slowness field after summation of velocity bases
             else:
                 if returncoeff:
                     return (
                         self.coeffs.copy()
                     )  # coefficients are slownesses and so we return coefficients
-                return self.sref + self.getImage(
+                return self.sref + self.get_image(
                     nx=nx, ny=ny
                 )  # return a slowness field after summation of slowness bases
 
-    def setVelocity(self, v):  # set Velocity coefficients
+    def set_velocity(self, v):  # set Velocity coefficients
         if self.coeff_type == "velocities":
             assert self.coeffs.shape == v.shape
             self.coeffs = v.copy()
@@ -617,7 +617,7 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
                 )
                 pass  # coefficients are slownesses and we need to find and set equivalent velocity coefficients (not implemented)
 
-    def setSlowness(self, s):  # set Slowness coefficients
+    def set_slowness(self, s):  # set Slowness coefficients
         if self.coeff_type == "velocities":
             if self.basis_type == "2Dpixel":
                 assert self.coeffs.shape == s.shape
@@ -633,7 +633,7 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
                 s.copy()
             )  # coefficients are slownesses and so we set new slowness coefficients
 
-    def getImage(
+    def get_image(
         self, nx=None, ny=None
     ):  # returns 2D image of model at chosen resolution
         if nx == None:
@@ -652,7 +652,7 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
             image += self.coeffs.flatten()[j] * (self.basis.evaluate(j, (Xm, Ym)))
         return image
 
-    def getbasisImage(
+    def get_basis_image(
         self, j, nx=None, ny=None
     ):  # returns 2D image of model at chosen resolution
         if nx == None:
@@ -677,7 +677,7 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
     def normalise(self, x):
         return x / self.norm(x)
 
-    def pngToModel(self, pngfile, nx, ny, bg=1.0, sc=1.0):
+    def png_to_model(self, pngfile, nx, ny, bg=1.0, sc=1.0):
         png = Image.open(pngfile)
         png.load()
         model = sc * (
@@ -687,7 +687,7 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
         )
         return model
 
-    def generateSurfacePoints(
+    def generate_surface_points(
         self,
         nPerSide,
         extent=(0, 1, 0, 1),
@@ -745,7 +745,7 @@ class Plot:  # This is a set of plotting routines to display 2D velocity models 
     def __init__(self):
         pass
 
-    def displayModel(
+    def display_model(
         self,
         model,
         paths=None,
@@ -785,14 +785,14 @@ class Plot:  # This is a set of plotting routines to display 2D velocity models 
 
         plotmodel = model
         if diced:
-            plotmodel = self.dicedgrid(model, extent=extent, dicex=dicex, dicey=dicey)
+            plotmodel = self.diced_grid(model, extent=extent, dicex=dicex, dicey=dicey)
 
         plt.imshow(plotmodel.T, origin="lower", extent=extent, cmap=cmap)
 
         if paths is not None:
             if isinstance(paths, np.ndarray) and paths.ndim == 2:
                 if paths.shape[1] == 4:  # we have paths from xrt.tracer so adjust
-                    paths = self.changepathsformat(paths)
+                    paths = self.change_paths_format(paths)
 
             for p in paths:
                 plt.plot(p[:, 0], p[:, 1], cline, lw=line, alpha=alpha)
@@ -821,7 +821,7 @@ class Plot:  # This is a set of plotting routines to display 2D velocity models 
 
         plt.show()
 
-    def dicedgrid(self, v, extent=[0.0, 1.0, 0.0, 1.0], dicex=8, dicey=8):
+    def diced_grid(self, v, extent=[0.0, 1.0, 0.0, 1.0], dicex=8, dicey=8):
         nx, ny = v.shape
         x = np.linspace(extent[0], extent[1], nx)
         y = np.linspace(extent[2], extent[3], ny)
@@ -837,7 +837,7 @@ class Plot:  # This is a set of plotting routines to display 2D velocity models 
         vinterp = rect.ev(X, Y)
         return vinterp
 
-    def changepathsformat(self, paths):
+    def change_paths_format(self, paths):
         p = np.zeros((len(paths), 2, 2))
         for i in range(len(paths)):
             p[i, 0, 0] = paths[i, 0]

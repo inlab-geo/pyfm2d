@@ -52,7 +52,7 @@ class PixelBasis2D:  # Model basis class
         if j < 0 or j >= self.nbases:
             raise BasisError(j)
         x, z = pos
-        ix, iz = self.convertindex(j)  # convert j basis to 2D model basis index
+        ix, iz = self.convert_index(j)  # convert j basis to 2D model basis index
         if np.isscalar(x):
             b = 0.0  # pixel basis value
             if (
@@ -78,7 +78,7 @@ class PixelBasis2D:  # Model basis class
             b[(iz == self.nz - 1 and z == self.zg[-1])] = 1.0
         return b
 
-    def convertindex(
+    def convert_index(
         self, i
     ):  # Convert single 1D array index to 2D array index using inner loop over X and outer loop over Y
         if i < 0 or i >= self.nbases:
@@ -91,7 +91,7 @@ class PixelBasis2D:  # Model basis class
             zindex = int((i / self.nx) % self.nz)
         return xindex, zindex
 
-    def iconvertindex(
+    def iconvert_index(
         self, ix, iz
     ):  # Convert single 2D array index to 1D array index inner loop over X and outer loop over Y
         if ix < 0 or ix >= self.nx:
@@ -106,7 +106,7 @@ class PixelBasis2D:  # Model basis class
     def intlimits(
         self, j
     ):  # calculates the limits of integration for given basis function
-        ix, iz = self.convertindex(j)  # convert j basis to 2D model basis index
+        ix, iz = self.convert_index(j)  # convert j basis to 2D model basis index
         # For voxel basis we return the limits of the jth cell (because jth basis is zero elsewhere)
         return [self.xg[ix], self.xg[ix + 1]], [self.zg[iz], self.zg[iz + 1]]
 
@@ -154,7 +154,7 @@ class CosineBasis2D:  # Model basis class
 
     def evaluate(self, j, pos):  # evaluate the ith data kernel at location (x,z)
         x, z = pos
-        ix, iz = self.convertindex(
+        ix, iz = self.convert_index(
             j
         )  # convert from single index to pair of ix,iz indices
         b = np.cos(np.pi * ix * (x - self.xmin) / (self.Lx)) * np.cos(
@@ -167,7 +167,7 @@ class CosineBasis2D:  # Model basis class
             fz = 1.0
         return b * fx * fz / self.norm
 
-    def convertindex(
+    def convert_index(
         self, i
     ):  # Convert single 1D array index to 2D array index using inner loop over X and outer loop over Y
         if i < 0 or i >= self.nbases:
@@ -177,7 +177,7 @@ class CosineBasis2D:  # Model basis class
         zindex = int((i / self.nx) % self.nz)
         return xindex, zindex
 
-    def iconvertindex(
+    def iconvert_index(
         self, ix, iz
     ):  # Convert single 2D array index to 1D array index inner loop over X and outer loop over Y
         if ix < 0 or ix >= self.nx:
@@ -186,7 +186,7 @@ class CosineBasis2D:  # Model basis class
             raise BasisError(iz)
         return iz * self.nx + ix  # ix is the inner loop and iz the outer loop
 
-    def intlimits(
+    def int_limits(
         self, j
     ):  # calculates the limits of integration for given basis function
         return [self.xmin, self.xmax], [
@@ -194,7 +194,7 @@ class CosineBasis2D:  # Model basis class
             self.zmax,
         ]  # Here we choose whole model
 
-    def fitcoefficients(self, target, A=None, returnmatrix=False):
+    def fit_coefficients(self, target, A=None, returnmatrix=False):
         """
         fitcoefficients - fits basis coefficients to given field of function values at arbitrary resolution.
 
@@ -211,7 +211,7 @@ class CosineBasis2D:  # Model basis class
         if type(A) is not np.ndarray:
             A = np.zeros((self.nbases, nx * nz))
             for j in range(self.nbases):
-                A[j] = self.getbasisImage(j, nx=nx, nz=nz).flatten()
+                A[j] = self.get_basis_image(j, nx=nx, nz=nz).flatten()
         coeff, res, rank, s = np.linalg.lstsq(
             A.T, target.flatten(), rcond=None
         )  # fit basis coefficients to input field
@@ -219,7 +219,7 @@ class CosineBasis2D:  # Model basis class
             return coeff.reshape(self.nx, self.nz), A
         return coeff.reshape(self.nx, self.nz)
 
-    def getbasisImage(
+    def get_basis_image(
         self, j, nx=None, nz=None
     ):  # returns 2D image of model at chosen resolution
         if nx == None:

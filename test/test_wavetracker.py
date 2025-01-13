@@ -65,11 +65,11 @@ m = np.array(
 )
 
 g = wt.GridModel(m)
-mp = g.getVelocity()
+mp = g.get_velocity()
 mp[1, 1] = 0.7
 mp[2, 2] = 0.9
 mp[2, 1] = 1.3
-g.setVelocity(mp)
+g.set_velocity(mp)
 
 # -------------------------------------------------------
 
@@ -128,15 +128,15 @@ extent = [0.0, 20.0 * factor, 0.0, 30.0 * factor]
 # m=get_spherical_model(extent,32,48)
 m = get_gauss_model(extent, 32, 48)
 g = wt.BasisModel(m, extent=extent)
-recs = g.generateSurfacePoints(
+recs = g.generate_surface_points(
     10, extent=extent, surface=[False, True, False, False], addCorners=False
 )  # generate receivers around edge
-srcs = g.generateSurfacePoints(
+srcs = g.generate_surface_points(
     10, extent=extent, surface=[True, False, False, False], addCorners=False
 )  # generate receivers around edge
 
 # -------------------------------------------------------
-v = g.getVelocity()
+v = g.get_velocity()
 
 # run wave front tracker
 myfmm = wt.WaveTracker()

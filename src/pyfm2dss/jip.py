@@ -33,7 +33,7 @@ from tqdm import tqdm
 # calculate Jacobian by integrating all kernels x model bases using
 # either simpsons or adaptive integration methods.
 #
-def calcjacobian(
+def calc_jacobian(
     kernel,
     basis,
     mthd="simpson",
@@ -142,7 +142,7 @@ def calcjacobian(
                     and (basis.type == "3Dvoxel" or basis.type == "2Dpixel")
                     and not forceint
                 ):
-                    r = raylengths(
+                    r = ray_lengths(
                         i, j, kernel, basis
                     )  # special case for ray lengths in voxel cells.
                     if r != 0.0:
@@ -151,7 +151,7 @@ def calcjacobian(
                         k += 1
                     # Jacobian[i,j] = kernel.evaluate(i)*raylengths(i,j,kernel,basis) # special case for ray lengths in voxel cells.
                 elif mthd == "quad":
-                    a, b = integrate_kernelandbasis(
+                    a, b = integrate_kernel_and_basis(
                         i, j, kernel, basis, epsrel=epsrel, mthd="quad"
                     )
                     if a != 0.0:
@@ -160,7 +160,7 @@ def calcjacobian(
                         JdataE[k] = b
                         k += 1
                 elif mthd == "simpson":
-                    r = integrate_kernelandbasis(i, j, kernel, basis, mthd="simpson")
+                    r = integrate_kernel_and_basis(i, j, kernel, basis, mthd="simpson")
                     if r != 0.0:
                         Jindices[k] = i
                         Jdata[k] = r
@@ -186,15 +186,15 @@ def calcjacobian(
                     and not forceint
                 ):
                     # print(' using line integral')
-                    Jacobian[i, j] = kernel.evaluate(i) * raylengths(
+                    Jacobian[i, j] = kernel.evaluate(i) * ray_lengths(
                         i, j, kernel, basis
                     )  # special case for ray lengths in voxel cells.
                 elif mthd == "quad":
-                    Jacobian[i, j], JacobianE[i, j] = integrate_kernelandbasis(
+                    Jacobian[i, j], JacobianE[i, j] = integrate_kernel_and_basis(
                         i, j, kernel, basis, epsrel=epsrel, mthd="quad"
                     )
                 elif mthd == "simpson":
-                    Jacobian[i, j] = integrate_kernelandbasis(
+                    Jacobian[i, j] = integrate_kernel_and_basis(
                         i, j, kernel, basis, mthd="simpson"
                     )
     if returnerror:
@@ -202,7 +202,7 @@ def calcjacobian(
     return Jacobian  # return Jacobian and estimated numerical error
 
 
-def integrate_kernelandbasis(
+def integrate_kernel_and_basis(
     i, j, kernel, basis, epsrel=1.0e-3, mthd="simpson"
 ):  # Adaptive numerical integration
 
@@ -313,7 +313,7 @@ def integrand1D(
     return basis.evaluate(j, pos)
 
 
-def checkinsidecell(
+def check_inside_cell(
     x, xlim, ylim, zlim
 ):  # check if point is inside cell (not on boundary)
     if x[0] <= xlim[0]:
@@ -332,7 +332,7 @@ def checkinsidecell(
 
 
 # Calculate ray lengths in 2D pixel or 3D voxel model
-def raylengths(
+def ray_lengths(
     i, j, kernel, basis
 ):  # Calculates lengths of rays in cellular grid in 2D or 3D
 
@@ -361,15 +361,15 @@ def raylengths(
         return 0.0
     else:
         # deal with special cases of ray end points inside cells
-        if checkinsidecell(raystart, xlim, ylim, zlim):
-            if checkinsidecell(rayend, xlim, ylim, zlim):
+        if check_inside_cell(raystart, xlim, ylim, zlim):
+            if check_inside_cell(rayend, xlim, ylim, zlim):
                 return np.linalg.norm(
                     raystart - rayend
                 )  # both end points are inside cell return raylength
             return np.linalg.norm(
                 raystart - p0
             )  # if start point is in cell return raylength
-        if checkinsidecell(rayend, xlim, ylim, zlim):
+        if check_inside_cell(rayend, xlim, ylim, zlim):
             return np.linalg.norm(
                 rayend - p0
             )  # if end point is in cell return raylength
@@ -389,7 +389,7 @@ def raylengths(
         return np.linalg.norm(p1 - p0)  # return raylength in cell
 
 
-def calcjacobian_nonsparse(
+def calc_jacobian_nonsparse(
     kernel,
     basis,
     mthd="simpson",
@@ -484,15 +484,15 @@ def calcjacobian_nonsparse(
                 and not forceint
             ):
                 # print(' using line integral')
-                Jacobian[i, j] = kernel.evaluate(i) * raylengths(
+                Jacobian[i, j] = kernel.evaluate(i) * ray_lengths(
                     i, j, kernel, basis
                 )  # special case for ray lengths in voxel cells.
             elif mthd == "quad":
-                Jacobian[i, j], JacobianE[i, j] = integrate_kernelandbasis(
+                Jacobian[i, j], JacobianE[i, j] = integrate_kernel_and_basis(
                     i, j, kernel, basis, epsrel=epsrel, mthd="quad"
                 )
             elif mthd == "simpson":
-                Jacobian[i, j] = integrate_kernelandbasis(
+                Jacobian[i, j] = integrate_kernel_and_basis(
                     i, j, kernel, basis, mthd="simpson"
                 )
     if returnerror:
