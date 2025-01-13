@@ -181,7 +181,7 @@ class FastMarchingMethod:
         nsrc_ = ctypes.c_int(-99)
         self.libfm2dss.get_number_of_sources(ctypes.byref(nsrc_))
         nsrc = nsrc_.value
-        
+
         nrc_ = ctypes.c_int(-99)
         self.libfm2dss.get_number_of_receivers(ctypes.byref(nrc_))
         nrc = nrc_.value
@@ -286,11 +286,17 @@ class FastMarchingMethod:
 
         frechet_nnz_ = ctypes.c_int(-99)
         self.libfm2dss.get_number_of_frechet_derivatives(ctypes.byref(frechet_nnz_))
-        frechet_nnz=frechet_nnz_.value
-        
-        frechet_irow_ = numpy.asfortranarray(numpy.zeros(frechet_nnz), dtype=numpy.int32)
-        frechet_icol_ = numpy.asfortranarray(numpy.zeros(frechet_nnz), dtype=numpy.int32) 
-        frechet_val_ = numpy.asfortranarray(numpy.zeros(frechet_nnz), dtype=numpy.float32)
+        frechet_nnz = frechet_nnz_.value
+
+        frechet_irow_ = numpy.asfortranarray(
+            numpy.zeros(frechet_nnz), dtype=numpy.int32
+        )
+        frechet_icol_ = numpy.asfortranarray(
+            numpy.zeros(frechet_nnz), dtype=numpy.int32
+        )
+        frechet_val_ = numpy.asfortranarray(
+            numpy.zeros(frechet_nnz), dtype=numpy.float32
+        )
 
         self.libfm2dss.get_frechet_derivatives(
             frechet_irow_.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
@@ -319,12 +325,11 @@ class FastMarchingMethod:
         nrc = nrc_.value
 
         return scipy.sparse.csr_array(
-            (jval, (jrow, jcol)), shape=(nsrc * nrc, (nvx+2) * (nvz+2))
+            (jval, (jrow, jcol)), shape=(nsrc * nrc, (nvx + 2) * (nvz + 2))
         )
 
     def get_raypaths(self):
-        
-        
+
         npaths_ = ctypes.c_int(-99)
         self.libfm2dss.get_number_of_raypaths(ctypes.byref(npaths_))
         npaths = int(npaths_.value)
@@ -334,48 +339,42 @@ class FastMarchingMethod:
             ctypes.byref(max_nppts_)
         )
         max_nppts = int(max_nppts_.value)
-        
+
         paths_ = numpy.asfortranarray(
             numpy.zeros([npaths, max_nppts, 2]), dtype=numpy.float32
         )
-        
-        nppts_ = numpy.asfortranarray(
-            numpy.zeros([npaths]), dtype=numpy.int32
-        )
-        
+
+        nppts_ = numpy.asfortranarray(numpy.zeros([npaths]), dtype=numpy.int32)
+
         self.libfm2dss.get_raypaths(
             paths_.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
-            nppts_.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
+            nppts_.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
         )
-        
-        
-        paths=[]
-        
+
+        paths = []
+
         for i in range(npaths):
-            lat=paths_[i,0:nppts_[i],0]
-            long=paths_[i,0:nppts_[i],1]
-            path = numpy.array([long,lat]).T
-            paths.append(path) 
+            lat = paths_[i, 0 : nppts_[i], 0]
+            long = paths_[i, 0 : nppts_[i], 1]
+            path = numpy.array([long, lat]).T
+            paths.append(path)
 
         return paths
-
 
     def get_traveltime_fields(self):
         nsrc_ = ctypes.c_int(-99)
         self.libfm2dss.get_number_of_sources(ctypes.byref(nsrc_))
         nsrc = nsrc_.value
-        
+
         nnx_ = ctypes.c_int(-99)
         nnz_ = ctypes.c_int(-99)
 
-        self.libfm2dss.get_number_of_grid_nodes(
-            ctypes.byref(nnx_), ctypes.byref(nnz_)
-        )
+        self.libfm2dss.get_number_of_grid_nodes(ctypes.byref(nnx_), ctypes.byref(nnz_))
         nnx = nnx_.value
         nnz = nnz_.value
-    
+
         tfields_ = numpy.asfortranarray(
-            numpy.zeros([nsrc,nnz,nnx]), dtype=numpy.float32
+            numpy.zeros([nsrc, nnz, nnx]), dtype=numpy.float32
         )
 
         self.libfm2dss.get_traveltime_fields(

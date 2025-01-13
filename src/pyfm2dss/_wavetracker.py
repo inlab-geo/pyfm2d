@@ -98,13 +98,13 @@ class WaveTracker:
 
 
         Returns
-            WaveTracker.ttimes, ndarray(ns*nr)   : first arrival travel times between ns sources and nr receivers. 
+            WaveTracker.ttimes, ndarray(ns*nr)   : first arrival travel times between ns sources and nr receivers.
             WaveTracker.paths, list(ns*nr)       : list of 2-D arrays (x,y) for all ns*nr raypaths.
-            WaveTracker.ttfield, ndarray(mx,my)  : 2-D array of travel time field for source tfieldsource at resolution mx*my 
+            WaveTracker.ttfield, ndarray(mx,my)  : 2-D array of travel time field for source tfieldsource at resolution mx*my
                                                    (mx = dicex*(nx-1) + 1, my = dicey*(ny-1) + 1).
-            WaveTracker.frechet, csr_matrix      : 2D array of shape (nrays, nx*ny) in sparse csr format containing derivatives of travel 
-                                                   time with respect to input velocity (velocityderiv=True) or slowness (velocityderiv=False) model values.                                                   
-        
+            WaveTracker.frechet, csr_matrix      : 2D array of shape (nrays, nx*ny) in sparse csr format containing derivatives of travel
+                                                   time with respect to input velocity (velocityderiv=True) or slowness (velocityderiv=False) model values.
+
         Notes:
             Internally variables are converted to numpy.float32 to be consistent with Fortran code fm2dss.f90.
 
@@ -113,10 +113,12 @@ class WaveTracker:
         recs = recs.reshape(-1, 2)  # ensure receiver array is 2D and float32
         srcs = srcs.reshape(-1, 2)  # ensure source array is 2D and float32
         # check sources and receives inside extent
-        
+
         ns = len(srcs)
 
-        if tfieldsource + 1 > ns:  # source requested for travel time field does not exist
+        if (
+            tfieldsource + 1 > ns
+        ):  # source requested for travel time field does not exist
             print(
                 "Error: Travel time field corresponds to source:",
                 tfieldsource,
@@ -208,9 +210,7 @@ class WaveTracker:
 
         if frechet:
             # frechetvals = read_fmst_frechet(wdir+'/'+ffilename,noncushion,nodemap)
-            frechetvals = (
-                self.fmm.get_frechet_derivatives()
-            )  
+            frechetvals = self.fmm.get_frechet_derivatives()
             if not degrees:
                 frechetvals *= (
                     kms2deg  # adjust travel times because inputs are not in degrees
@@ -218,11 +218,17 @@ class WaveTracker:
 
             # the frechet matrix returned in in csr format and has two layers of cushion nodes surrounding the (nx,ny) grid
             F = frechetvals.toarray()  # unpack csr format
-            nrays = np.shape(F)[0]                                        # number of raypaths
-            nx, ny = v.shape                                              # shape of non-cushion velcoity model
-            F = F[:, self.noncushion.flatten()].reshape((nrays, nx, ny))  # remove cushion nodes and reshape to (nx,ny)
-            F = F[:, :, ::-1]                                             # reverse y order, because it seems to be returned in reverse order (cf. ttfield array)
-            frechetvals = csr_matrix(F.reshape((nrays, nx * ny)))         # reformat as a sparse CSR matrix
+            nrays = np.shape(F)[0]  # number of raypaths
+            nx, ny = v.shape  # shape of non-cushion velcoity model
+            F = F[:, self.noncushion.flatten()].reshape(
+                (nrays, nx, ny)
+            )  # remove cushion nodes and reshape to (nx,ny)
+            F = F[
+                :, :, ::-1
+            ]  # reverse y order, because it seems to be returned in reverse order (cf. ttfield array)
+            frechetvals = csr_matrix(
+                F.reshape((nrays, nx * ny))
+            )  # reformat as a sparse CSR matrix
             if (
                 not velocityderiv
             ):  # adjust derivatives to be of velocites rather than slownesses (default)
@@ -299,7 +305,9 @@ class WaveTracker:
         return nx, ny, dlat, dlong, vc
 
 
-class gridModel(object):  # This is for the original regular model grid (without using the basis.py package)
+class gridModel(
+    object
+):  # This is for the original regular model grid (without using the basis.py package)
 
     def __init__(self, velocities, extent=(0, 1, 0, 1)):
         self.nx, self.ny = velocities.shape
@@ -373,7 +381,9 @@ class gridModel(object):  # This is for the original regular model grid (without
         return np.array(out)
 
 
-class basisModel(object):  # This is for a 2D model basis accessed through the package basis.py
+class basisModel(
+    object
+):  # This is for a 2D model basis accessed through the package basis.py
     """
 
     A model class which is an interface to package basis.py to incorporate local or global 2D bases for tomography.
