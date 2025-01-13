@@ -698,113 +698,107 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
         return np.array(out)
 
 
-class Plot:
+# --------------------------------------------------------------------------------------------
+# Plotting routines
+# --------------------------------------------------------------------------------------------
+
+
+def display_model(
+    model,
+    paths=None,
+    extent=(0, 1, 0, 1),
+    clim=None,
+    cmap=None,
+    figsize=(6, 6),
+    title=None,
+    line=1.0,
+    cline="k",
+    alpha=1.0,
+    wfront=None,
+    cwfront="k",
+    diced=True,
+    dicex=8,
+    dicey=8,
+    cbarshrink=0.6,
+    cbar=True,
+    filename=None,
+    **wkwargs,
+):
     """
 
-    A model class containing plot routines for display of 2D velocity/slowness models and optionally raypaths and wavefronts on top.
+    Function to plot 2D velocity or slowness field
+
+    Inputs:
+        model, ndarray(nx,ny)           : 2D velocity or slowness field on rectangular grid
+        paths, string                   :
 
     """
 
-    def __init__(self):
-        pass
+    plt.figure(figsize=figsize)
+    if cmap is None:
+        cmap = plt.cm.RdBu
 
-    def display_model(
-        self,
-        model,
-        paths=None,
-        extent=(0, 1, 0, 1),
-        clim=None,
-        cmap=None,
-        figsize=(6, 6),
-        title=None,
-        line=1.0,
-        cline="k",
-        alpha=1.0,
-        wfront=None,
-        cwfront="k",
-        diced=True,
-        dicex=8,
-        dicey=8,
-        cbarshrink=0.6,
-        cbar=True,
-        filename=None,
-        **wkwargs,
-    ):
-        """
+    # if diced option plot the actual B-spline interpolated velocity used by fmst program
 
-        Function to plot 2D velocity or slowness field
+    plotmodel = model
+    if diced:
+        plotmodel = create_diced_grid(model, extent=extent, dicex=dicex, dicey=dicey)
 
-        Inputs:
-            model, ndarray(nx,ny)           : 2D velocity or slowness field on rectangular grid
-            paths, string                   :
+    plt.imshow(plotmodel.T, origin="lower", extent=extent, cmap=cmap)
 
-        """
+    if paths is not None:
+        if isinstance(paths, np.ndarray) and paths.ndim == 2:
+            if paths.shape[1] == 4:  # we have paths from xrt.tracer so adjust
+                paths = change_paths_format(paths)
 
-        plt.figure(figsize=figsize)
-        if cmap is None:
-            cmap = plt.cm.RdBu
+        for p in paths:
+            plt.plot(p[:, 0], p[:, 1], cline, lw=line, alpha=alpha)
 
-        # if diced option plot the actual B-spline interpolated velocity used by fmst program
+    if clim is not None:
+        plt.clim(clim)
 
-        plotmodel = model
-        if diced:
-            plotmodel = self.diced_grid(model, extent=extent, dicex=dicex, dicey=dicey)
+    if title is not None:
+        plt.title(title)
 
-        plt.imshow(plotmodel.T, origin="lower", extent=extent, cmap=cmap)
+    if wfront is not None:
+        nx, ny = wfront.shape
+        X, Y = np.meshgrid(
+            np.linspace(extent[0], extent[1], nx),
+            np.linspace(extent[2], extent[3], ny),
+        )
+        plt.contour(X, Y, wfront.T, **wkwargs)  # Negative contours default to dashed.
 
-        if paths is not None:
-            if isinstance(paths, np.ndarray) and paths.ndim == 2:
-                if paths.shape[1] == 4:  # we have paths from xrt.tracer so adjust
-                    paths = self.change_paths_format(paths)
+    if wfront is None and cbar:
+        plt.colorbar(shrink=cbarshrink)
 
-            for p in paths:
-                plt.plot(p[:, 0], p[:, 1], cline, lw=line, alpha=alpha)
+    if filename is not None:
+        plt.savefig(filename)
 
-        if clim is not None:
-            plt.clim(clim)
+    plt.show()
 
-        if title is not None:
-            plt.title(title)
 
-        if wfront is not None:
-            nx, ny = wfront.shape
-            X, Y = np.meshgrid(
-                np.linspace(extent[0], extent[1], nx),
-                np.linspace(extent[2], extent[3], ny),
-            )
-            plt.contour(
-                X, Y, wfront.T, **wkwargs
-            )  # Negative contours default to dashed.
+def create_diced_grid(v, extent=[0.0, 1.0, 0.0, 1.0], dicex=8, dicey=8):
+    nx, ny = v.shape
+    x = np.linspace(extent[0], extent[1], nx)
+    y = np.linspace(extent[2], extent[3], ny)
+    kx, ky = 3, 3
+    if nx <= 3:
+        kx = nx - 1  # reduce order of B-spline if we have too few velocity nodes
+    if ny <= 3:
+        ky = ny - 1
+    rect = RectBivariateSpline(x, y, v, kx=kx, ky=ky)
+    xx = np.linspace(extent[0], extent[1], dicex * nx)
+    yy = np.linspace(extent[2], extent[3], dicey * ny)
+    X, Y = np.meshgrid(xx, yy, indexing="ij")
+    vinterp = rect.ev(X, Y)
+    return vinterp
 
-        if wfront is None and cbar:
-            plt.colorbar(shrink=cbarshrink)
 
-        if filename is not None:
-            plt.savefig(filename)
-
-        plt.show()
-
-    def diced_grid(self, v, extent=[0.0, 1.0, 0.0, 1.0], dicex=8, dicey=8):
-        nx, ny = v.shape
-        x = np.linspace(extent[0], extent[1], nx)
-        y = np.linspace(extent[2], extent[3], ny)
-        kx, ky = 3, 3
-        if nx <= 3:
-            kx = nx - 1  # reduce order of B-spline if we have too few velocity nodes
-        if ny <= 3:
-            ky = ny - 1
-        rect = RectBivariateSpline(x, y, v, kx=kx, ky=ky)
-        xx = np.linspace(extent[0], extent[1], dicex * nx)
-        yy = np.linspace(extent[2], extent[3], dicey * ny)
-        X, Y = np.meshgrid(xx, yy, indexing="ij")
-        vinterp = rect.ev(X, Y)
-        return vinterp
-
-    def change_paths_format(self, paths):
-        p = np.zeros((len(paths), 2, 2))
-        for i in range(len(paths)):
-            p[i, 0, 0] = paths[i, 0]
-            p[i, 0, 1] = paths[i, 1]
-            p[i, 1, 0] = paths[i, 2]
-            p[i, 1, 1] = paths[i, 3]
-        return p
+def change_paths_format(paths):
+    p = np.zeros((len(paths), 2, 2))
+    for i in range(len(paths)):
+        p[i, 0, 0] = paths[i, 0]
+        p[i, 0, 1] = paths[i, 1]
+        p[i, 1, 0] = paths[i, 2]
+        p[i, 1, 1] = paths[i, 3]
+    return p
