@@ -32,23 +32,20 @@ class PixelBasis2D:  # Model basis class
         self.zmin = zg[0]  # Y-min of model
         self.zmax = zg[-1]  # Y-max of model
         self.outer = outer  # axis for outer loop of basis grid (for indexing)
-        self.nbases = (self.nx) * (
-            self.nz
-        )  # Total number of basis functions in voxel model
+        self.nbases = self.nx * self.nz  # Number of basis functions in voxel model
 
-        self.nxi = npoints[
-            0
-        ]  # X-integration grid used in each cell of this basis (only used if kernel is 3D and integration mthd is 'simpson')
-        self.nzi = npoints[
-            1
-        ]  # Y-integration grid used in each cell of this basis (only used if kernel is 3D and integration mthd is 'simpson')
-        self.nline = npoints[
-            2
-        ]  # Number of integration points along 1D ray within cell (only used if kernel is a 1D and integration method `simpson')
+        # X-integration grid used in each cell of this basis
+        # (only used if kernel is 3D and integration mthd is 'simpson')
+        self.nxi = npoints[0]
+        # Y-integration grid used in each cell of this basis
+        # (only used if kernel is 3D and integration mthd is 'simpson')
+        self.nzi = npoints[1]
+        # Number of integration points along 1D ray within cell
+        # (only used if kernel is a 1D and integration method `simpson')
+        self.nline = npoints[2]
 
-    def evaluate(
-        self, j, pos
-    ):  # evaluate the ith model basis function at location (x,y)
+    def evaluate(self, j, pos):
+        """evaluate the ith model basis function at location (x,y)"""
         if j < 0 or j >= self.nbases:
             raise BasisError(j)
         x, z = pos
@@ -78,9 +75,10 @@ class PixelBasis2D:  # Model basis class
             b[(iz == self.nz - 1 and z == self.zg[-1])] = 1.0
         return b
 
-    def convert_index(
-        self, i
-    ):  # Convert single 1D array index to 2D array index using inner loop over X and outer loop over Y
+    def convert_index(self, i):
+        """
+        Convert single 1D array index to 2D array index using inner loop over X and outer loop over Y
+        """
         if i < 0 or i >= self.nbases:
             raise BasisError(i)
         if self.outer == "x":
@@ -91,9 +89,10 @@ class PixelBasis2D:  # Model basis class
             zindex = int((i / self.nx) % self.nz)
         return xindex, zindex
 
-    def iconvert_index(
-        self, ix, iz
-    ):  # Convert single 2D array index to 1D array index inner loop over X and outer loop over Y
+    def iconvert_index(self, ix, iz):
+        """
+        Convert single 2D array index to 1D array index inner loop over X and outer loop over Y
+        """
         if ix < 0 or ix >= self.nx:
             raise BasisError(ix)
         if iz < 0 or iz >= self.nz:
@@ -103,9 +102,8 @@ class PixelBasis2D:  # Model basis class
         else:
             return iz * self.nx + ix  # ix is the inner loop and iz the outer loop
 
-    def intlimits(
-        self, j
-    ):  # calculates the limits of integration for given basis function
+    def int_limits(self, j):
+        """calculates the limits of integration for given basis function"""
         ix, iz = self.convert_index(j)  # convert j basis to 2D model basis index
         # For voxel basis we return the limits of the jth cell (because jth basis is zero elsewhere)
         return [self.xg[ix], self.xg[ix + 1]], [self.zg[iz], self.zg[iz + 1]]
@@ -138,15 +136,15 @@ class CosineBasis2D:  # Model basis class
         self.nz = ny  # set number of bases in Z-direction
         self.nbases = self.nx * self.nz  # Total number of basis functions in 2D model
 
-        self.nxi = npoints[
-            0
-        ]  # X-integration grid used in each cell of this basis (only used if kernel is 3D and integration mthd is 'simpson')
-        self.nzi = npoints[
-            1
-        ]  # Y-integration grid used in each cell of this basis (only used if kernel is 3D and integration mthd is 'simpson')
-        self.nline = npoints[
-            2
-        ]  # Number of integration points along 1D ray within cell (only used if kernel is a 1D and integration method `simpson')
+        self.nxi = npoints[0]
+        # X-integration grid used in each cell of this basis
+        # (only used if kernel is 3D and integration mthd is 'simpson')
+        self.nzi = npoints[1]
+        # Y-integration grid used in each cell of this basis
+        # (only used if kernel is 3D and integration mthd is 'simpson')
+        self.nline = npoints[2]
+        # Number of integration points along 1D ray within cell
+        # (only used if kernel is a 1D and integration method `simpson')
         self.Lx = self.xmax - self.xmin  # Set maximum X wavelength in model
         self.Lz = self.zmax - self.zmin  # Set maximum Z wavelength in model
         self.norm = np.sqrt(self.Lx * self.Lz)
@@ -167,9 +165,10 @@ class CosineBasis2D:  # Model basis class
             fz = 1.0
         return b * fx * fz / self.norm
 
-    def convert_index(
-        self, i
-    ):  # Convert single 1D array index to 2D array index using inner loop over X and outer loop over Y
+    def convert_index(self, i):
+        """
+        Convert single 1D array index to 2D array index using inner loop over X and outer loop over Y
+        """
         if i < 0 or i >= self.nbases:
             raise BasisError(i)
 
@@ -177,18 +176,18 @@ class CosineBasis2D:  # Model basis class
         zindex = int((i / self.nx) % self.nz)
         return xindex, zindex
 
-    def iconvert_index(
-        self, ix, iz
-    ):  # Convert single 2D array index to 1D array index inner loop over X and outer loop over Y
+    def iconvert_index(self, ix, iz):
+        """
+        Convert single 2D array index to 1D array index inner loop over X and outer loop over Y
+        """
         if ix < 0 or ix >= self.nx:
             raise BasisError(ix)
         if iz < 0 or iz >= self.nz:
             raise BasisError(iz)
         return iz * self.nx + ix  # ix is the inner loop and iz the outer loop
 
-    def int_limits(
-        self, j
-    ):  # calculates the limits of integration for given basis function
+    def int_limits(self, j):
+        """calculates the limits of integration for given basis function"""
         return [self.xmin, self.xmax], [
             self.zmin,
             self.zmax,
@@ -219,9 +218,8 @@ class CosineBasis2D:  # Model basis class
             return coeff.reshape(self.nx, self.nz), A
         return coeff.reshape(self.nx, self.nz)
 
-    def get_basis_image(
-        self, j, nx=None, nz=None
-    ):  # returns 2D image of model at chosen resolution
+    def get_basis_image(self, j, nx=None, nz=None):
+        """returns 2D image of model at chosen resolution"""
         if nx is None:
             nx = self.nx
         if nz is None:
@@ -274,13 +272,13 @@ class RayKernel1D:  # A linear data kernel class
 
         return self.constant  # Return constant along ray for integration
 
-    def position(
-        self, i, l
-    ):  # find (x,y,z) position of ith data kernel at length l along ray.
-        #
-        # This example is for a straight seismic ray (self.type = '1Dstraightray').
-        # For a curved ray (self.type = '1D') this is where one would specify (x,y,z) as a function of length l.
-        #
+    def position(self, i, l):
+        """
+        find (x,y,z) position of ith data kernel at length l along ray.
+
+        This example is for a straight seismic ray (self.type = '1Dstraightray').
+        For a curved ray (self.type = '1D') this is where one would specify (x,y,z) as a function of length l.
+        """
         if i < 0 or i >= self.nkernels:
             raise KernelOBSError(i)
         # if(l <= 0): return self.paths[i][0]
@@ -325,9 +323,8 @@ class KernelOBSError(Exception):
 # Define utility routines for 2D tomography
 
 
-def randomrays2Dbox(
-    Nrays, x, y, seed=61254557, filename=""
-):  # Generate random rays across 2D model
+def randomrays2Dbox(Nrays, x, y, seed=61254557, filename=""):
+    """Generate random rays across 2D model"""
     if filename == "":  # generate ray endpoints randomly on side of given box
         np.random.seed(seed)
         sides = np.zeros((Nrays, 2), dtype=int)
@@ -345,25 +342,29 @@ def randomrays2Dbox(
 
 def _choose_endpoint(side, x, y):  # choose random point on boundary of 2D box
     if side == 0:
+        # choose endpoint randomly along xmin side
         return [
             x[0],
             y[0] + (y[-1] - y[0]) * np.random.random(),
-        ]  # choose endpoint randomly along xmin side
+        ]
     elif side == 1:
+        # choose endpoint randomly along xmax side
         return [
             x[-1],
             y[0] + (y[-1] - y[0]) * np.random.random(),
-        ]  # choose endpoint randomly along xmax side
+        ]
     elif side == 2:
+        # choose endpoint randomly along ymin side
         return [
             x[0] + (x[-1] - x[0]) * np.random.random(),
             y[0],
-        ]  # choose endpoint randomly along ymin side
+        ]
     else:
+        # choose endpoint randomly along ymax side
         return [
             x[0] + (x[-1] - x[0]) * np.random.random(),
             y[-1],
-        ]  # choose endpoint randomly along ymax side
+        ]
 
 
 def _generate_center_coordinates(l_x):

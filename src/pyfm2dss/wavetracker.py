@@ -113,9 +113,8 @@ class WaveTracker:
 
         ns = len(srcs)
 
-        if (
-            tfieldsource + 1 > ns
-        ):  # source requested for travel time field does not exist
+        if tfieldsource + 1 > ns:
+            # source requested for travel time field does not exist
             print(
                 "Error: Travel time field corresponds to source:",
                 tfieldsource,
@@ -163,17 +162,14 @@ class WaveTracker:
         scx = np.float32(srcs[:, 0])
         scy = np.float32(srcs[:, 1])
 
-        fmm.set_sources(
-            scy, scx
-        )  # set sources (ordering inherited from fm2dss.f90)
+        fmm.set_sources(scy, scx)  # set sources (ordering inherited from fm2dss.f90)
 
         rcx = np.float32(recs[:, 0])
         rcy = np.float32(recs[:, 1])
         fmm.set_receivers(rcy, rcx)  # set receivers
 
-        nvx, nvy, dlat, dlong, vc = self.build_velocity_grid(
-            v, extent
-        )  # add cushion layer to velocity model and get parameters
+        # add cushion layer to velocity model and get parameters
+        nvx, nvy, dlat, dlong, vc = self.build_velocity_grid(v, extent)
 
         nvx = np.int32(nvx)
         nvy = np.int32(nvy)
@@ -184,10 +180,8 @@ class WaveTracker:
 
         fmm.set_velocity_model(nvy, nvx, extent[3], extent[0], dlat, dlong, vc)
 
-        srs = np.ones(
-            (len(recs), len(srcs)), dtype=np.int32
-        )  # set up time calculation between all sources and receivers
-
+        # set up time calculation between all sources and receivers
+        srs = np.ones((len(recs), len(srcs)), dtype=np.int32)
         fmm.set_source_receiver_associations(srs)
 
         fmm.allocate_result_arrays()  # allocate memory for Fortran arrays
@@ -198,9 +192,8 @@ class WaveTracker:
         if times:
             ttimes = fmm.get_traveltimes()
             if not degrees:
-                ttimes *= (
-                    kms2deg  # adjust travel times because inputs are not in degrees
-                )
+                # adjust travel times because inputs are not in degrees
+                ttimes *= kms2deg
             self.set_times(ttimes)
 
         if paths:
@@ -211,26 +204,21 @@ class WaveTracker:
             # frechetvals = read_fmst_frechet(wdir+'/'+ffilename,noncushion,nodemap)
             frechetvals = fmm.get_frechet_derivatives()
             if not degrees:
-                frechetvals *= (
-                    kms2deg  # adjust travel times because inputs are not in degrees
-                )
+                # adjust travel times because inputs are not in degrees
+                frechetvals *= kms2deg
 
             # the frechet matrix returned in in csr format and has two layers of cushion nodes surrounding the (nx,ny) grid
             F = frechetvals.toarray()  # unpack csr format
             nrays = np.shape(F)[0]  # number of raypaths
             nx, ny = v.shape  # shape of non-cushion velcoity model
-            F = F[:, self.noncushion.flatten()].reshape(
-                (nrays, nx, ny)
-            )  # remove cushion nodes and reshape to (nx,ny)
-            F = F[
-                :, :, ::-1
-            ]  # reverse y order, because it seems to be returned in reverse order (cf. ttfield array)
-            frechetvals = csr_matrix(
-                F.reshape((nrays, nx * ny))
-            )  # reformat as a sparse CSR matrix
-            if (
-                not velocityderiv
-            ):  # adjust derivatives to be of velocites rather than slownesses (default)
+            # remove cushion nodes and reshape to (nx,ny)
+            F = F[:, self.noncushion.flatten()].reshape((nrays, nx, ny))
+            # reverse y order, because it seems to be returned in reverse order (cf. ttfield array)
+            F = F[:, :, ::-1]
+            # reformat as a sparse CSR matrix
+            frechetvals = csr_matrix(F.reshape((nrays, nx * ny)))
+            if not velocityderiv:
+                # adjust derivatives to be of velocites rather than slownesses (default)
                 x2 = -(v * v).reshape(-1)
                 frechetvals = frechetvals.multiply(x2)
 
@@ -239,9 +227,8 @@ class WaveTracker:
         if tfieldsource >= 0:
             tfieldvals = fmm.get_traveltime_fields()
             if not degrees:
-                tfieldvals *= (
-                    kms2deg  # adjust travel times because inputs are not in degrees
-                )
+                # adjust travel times because inputs are not in degrees
+                tfieldvals *= kms2deg
             self.set_tfield(tfieldvals, tfieldsource)
 
         #   add required information to class instances
@@ -250,9 +237,8 @@ class WaveTracker:
 
         return
 
-    def build_velocity_grid(
-        self, v, extent
-    ):  # add cushion nodes about velocity model to be compatible with fm2dss.f90 input
+    def build_velocity_grid(self, v, extent):
+        # add cushion nodes about velocity model to be compatible with fm2dss.f90 input
         #
         # here extent[3],extent[2] is N-S range of grid nodes
         #      extent[0],extent[1] is W-E range of grid nodes
@@ -440,37 +426,26 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
         if self.basis_type == "2Dpixel":
             if self.coeff_type == "velocities":
                 if returncoeff:
-                    return (
-                        self.coeffs.copy()
-                    )  # because coefficients must be for velocities
-                return (
-                    self.vref + self.coeffs.copy()
-                )  # because coefficients must be for velocities
-            else:
+                    return self.coeffs.copy()
+                return self.vref + self.coeffs.copy()
+            else:  # slownesses
                 if returncoeff:
-                    return (
-                        1.0 / self.coeffs
-                    )  # because coefficients must be for slownesses
-                return 1.0 / (
-                    self.sref + self.coeffs
-                )  # because coefficients must be for slownesses
+                    return 1.0 / self.coeffs
+                return 1.0 / (self.sref + self.coeffs)
         else:  # non pixel basis
             if self.coeff_type == "velocities":
                 if returncoeff:
-                    return (
-                        self.coeffs.copy()
-                    )  # coefficients are velocities and so we return coefficients
-                return self.vref + self.get_image(
-                    nx=nx, ny=ny
-                )  # return a velocity field evaluated from basis summation
-            else:
+                    return self.coeffs.copy()
+                else:
+                    # return a velocity field evaluated from basis summation
+                    return self.vref + self.get_image(nx=nx, ny=ny)
+            else:  # slownesses
                 if returncoeff:
-                    return (
-                        self.fit_coefficients_s2v()
-                    )  # coefficients are slownesses and we need to find equivalent velocity coefficients
-                return 1.0 / (
-                    self.sref + self.get_image(nx=nx, ny=ny)
-                )  # coefficients are slownesses and we must return a velocity field
+                    # coefficients are slownesses and we need to find equivalent velocity coefficients
+                    return self.fit_coefficients_s2v()
+                else:
+                    # coefficients are slownesses and we must return a velocity field
+                    return 1.0 / (self.sref + self.get_image(nx=nx, ny=ny))
 
     def basis_transform_matrix(self):
         if not self.A_calc:
@@ -481,9 +456,10 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
             self.A_calc = True
         return self.A
 
-    def fit_coefficientes_v2s(
-        self, nx=None, ny=None
-    ):  # calculate slowness coefficients that correspond to a given set of velocity coefficients in model basis
+    def fit_coefficientes_v2s(self, nx=None, ny=None):
+        """
+        calculate slowness coefficients that correspond to a given set of velocity coefficients in model basis
+        """
         if nx is None:
             nx = self.nx
         if ny is None:
@@ -497,9 +473,10 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
         )  # fit slownesses coefficients to slowness field
         return slowcoeff.reshape(self.nx, self.ny)
 
-    def fit_coefficients_s2v(
-        self, nx=None, ny=None
-    ):  # calculate velocity coefficients that correspond to a given set of slowness coefficients in model basis
+    def fit_coefficients_s2v(self, nx=None, ny=None):
+        """
+        calculate velocity coefficients that correspond to a given set of slowness coefficients in model basis
+        """
         if nx is None:
             nx = self.nx
         if ny is None:
@@ -515,9 +492,10 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
         )  # fit slownesses coefficients to slowness field
         return velcoeff.reshape(self.nx, self.ny)
 
-    def convert_pixel_vel_2_basis_slow(
-        self, v
-    ):  # convert velocity model in pixel basis to equivalent model as slowness coefficients in model basis
+    def convert_pixel_vel_2_basis_slow(self, v):
+        """
+        convert velocity model in pixel basis to equivalent model as slowness coefficients in model basis
+        """
         nx, ny = v.shape
         vpert = v - self.vref
         if np.all(vpert) == 0.0:
@@ -532,9 +510,10 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
         # self.setCoeffs(coeff)
         return slowcoeff.reshape(self.nx, self.ny)
 
-    def convert_pixel_vel_2_basis_vel(
-        self, v
-    ):  # convert velocity model in pixel basis to equivalent model as velocity coefficients in model basis
+    def convert_pixel_vel_2_basis_vel(self, v):
+        """
+        convert velocity model in pixel basis to equivalent model as velocity coefficients in model basis
+        """
         nx, ny = v.shape
         vpert = v - self.vref
         # coeff = self.coeffs.copy()
@@ -555,7 +534,8 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
         self.coeffs = c
 
     def get_slowness(self, nx=None, ny=None, returncoeff=False):
-        """With no arguments this will return a slowness field.
+        """
+        With no arguments this will return a slowness field.
         If bases are 2D pixels the keyword returncoeff is ignored
         If bases are not pixels and returncoeff is False, then a slowness field is evaluated and returned at (nx,ny)
         If bases are not 2D pixels and returncoeff is True, then slowness basis coefficients are returned.
@@ -564,35 +544,27 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
         if self.basis_type == "2Dpixel":
             if self.coeff_type == "velocities":
                 if returncoeff:
-                    return (
-                        1.0 / (self.vref + self.coeffs) - self.sref
-                    )  # because coefficients are velocities
-                return 1.0 / (
-                    self.vref + self.coeffs
-                )  # because coefficients are velocities
-            else:
+                    return 1.0 / (self.vref + self.coeffs) - self.sref
+                return 1.0 / (self.vref + self.coeffs)
+            else:  # slownesses
                 if returncoeff:
-                    return self.coeffs.copy()  # because coefficients are slownesses
-                return (
-                    self.sref + self.coeffs.copy()
-                )  # because coefficients are slownesses
+                    return self.coeffs.copy()
+                return self.sref + self.coeffs.copy()
         else:
             if self.coeff_type == "velocities":
                 if returncoeff:
-                    return (
-                        self.fit_coefficientes_v2s()
-                    )  # we need to find slowness coefficients from velocity coefficients here
-                return 1.0 / (
-                    self.vref + self.get_image(nx=nx, ny=ny)
-                )  # return a slowness field after summation of velocity bases
+                    # we need to find slowness coefficients from velocity coefficients here
+                    return self.fit_coefficientes_v2s()
+                else:
+                    # return a slowness field after summation of velocity bases
+                    return 1.0 / (self.vref + self.get_image(nx=nx, ny=ny))
             else:
                 if returncoeff:
-                    return (
-                        self.coeffs.copy()
-                    )  # coefficients are slownesses and so we return coefficients
-                return self.sref + self.get_image(
-                    nx=nx, ny=ny
-                )  # return a slowness field after summation of slowness bases
+                    # coefficients are slownesses and so we return coefficients
+                    return self.coeffs.copy()
+                else:
+                    # return a slowness field after summation of slowness bases
+                    return self.sref + self.get_image(nx=nx, ny=ny)
 
     def set_velocity(self, v):  # set Velocity coefficients
         if self.coeff_type == "velocities":
@@ -726,7 +698,7 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
         return np.array(out)
 
 
-class Plot:  # This is a set of plotting routines to display 2D velocity models and optionally raypaths and wavefronts on top.
+class Plot:
     """
 
     A model class containing plot routines for display of 2D velocity/slowness models and optionally raypaths and wavefronts on top.
