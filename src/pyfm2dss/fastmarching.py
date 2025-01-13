@@ -2,8 +2,11 @@ import numpy as np
 import scipy
 import ctypes
 from pathlib import Path
+from site import getsitepackages
 
-lib_path = next(Path(__file__).parent.glob("libfm2dss*.so"))
+
+package_dir = Path(getsitepackages()[0]) / "pyfm2dss"
+lib_path = next(package_dir.glob("libfm2dss*.so"))
 libfm2dss = ctypes.cdll.LoadLibrary(str(lib_path))
 
 
