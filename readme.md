@@ -92,14 +92,11 @@ A gallery of images produce by the plot class showing examples of raypaths and w
 
 ## Wrapping Strategy
 
-The idea is to refactor the main into a subroutine inside a module that contains all
-variables used by main as global variables, That is they are moved out of the subroutine.
-As a consequence they should have global scope that is they exist even when the main that
-is now a subroutine is terminated. Thus they are accessible from Python via to be written 
+The idea is to refactor the original Fortran main into a subroutine inside a module that contains all
+variables used by main as global variables. That is they are moved out of the subroutine.
+As a consequence they have global scope and exist even when the main, that
+is now a subroutine, is terminated. Thus they are accessible from Python via to be written 
 get and set functions.
-
-This has now been completed for the  file specifying the source location tpyically called 
-`sources.dat`. 
 
 ## Tests
 
@@ -107,11 +104,11 @@ Running `test_fmmin2d.py` from within the test directory will run the orignal pr
 turned into a subroutine that can be called from python like the fmm executable it reads 
 the files from disk
 
-Running `test_run.py` illustrates how for the reorganised/expanded `fmm2dss.f90` now 
+Running `test_run.py` illustrates how the reorganised/expanded `fmm2dss.f90` now 
 allows in python to read the sources from disk by providing a file name, set them 
 from python and get them back from an fmm instance.
 
-Running `test_wavetracker.py` illustrates how for the wavetracker interface utilizes the ctype interface to `fm2dss.f90`.
+Running `test_wavetracker.py` illustrates how the wavetracker interface class utilizes the ctype interface to `fm2dss.f90`.
 
 ## Licensing
 `pyfm2dss` is released as BSD-2-Clause licence
