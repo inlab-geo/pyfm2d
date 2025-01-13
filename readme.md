@@ -30,7 +30,7 @@ Here is the docstring of the function `calc_wavefronts()` which does the work:
 A function to perform 2D Fast Marching of wavefronts from sources in a 2D velocity model.
 
     Inputs:
-        v, ndarray(nx,ny)          : coefficients of velocity field in 2D grid
+        v, ndarray(nx,ny)          : coefficients of velocity field in 2D grid with dimension (nx,ny).
         recs, ndarray(nr,2)        : receiver locations (x,y). Where nr is the number of receivers.
         srcs, ndarray(ns,2)        : source locations (x,y). Where ns is the number of receivers.
         paths, bool                : raypath option (True=calculate and return ray paths)
