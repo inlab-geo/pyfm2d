@@ -1,3 +1,3 @@
-from .wavetracker import WaveTracker, BasisModel, Plot
+from .wavetracker import WaveTracker, BasisModel, display_model
 
-__all__ = ["WaveTracker", "BasisModel", "Plot"]
+__all__ = ["WaveTracker", "BasisModel", "display_model"]
