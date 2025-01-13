@@ -7,12 +7,12 @@ Created on Fri Jan 10 08:33:05 2025
 """
 import numpy as np
 #import matplotlib.pyplot as plt
-import pyfm2dss as wt
+import pyfm2d as wt
 #import time
 #from tqdm import tqdm
 import sys
 
-# Simple test routine for wavetracker class and its use of low level class functions in pyfm2dss
+# Simple test routine for wavetracker class and its use of low level class functions in pyfm2d
 
 def build_velocitygrid(v,extent): # add cushion nodes about velocity model to be compatible with fm2dss.f90 input
     #
@@ -51,7 +51,7 @@ m = np.array([[1,1.1,1.1,1.],
               [1.1,1.2,1.3,1.2],
               [1.1,1.1,1.2,1.2]])
 
-g=wt.gridModel(m)
+g=wt.basisModel(m)
 mp = g.getVelocity()
 mp[1,1] = 0.7
 mp[2,2] = 0.9

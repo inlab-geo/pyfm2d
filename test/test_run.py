@@ -4,9 +4,9 @@ import faulthandler
 
 faulthandler.enable()
 
-import pyfm2dss
+import pyfm2d
 
-fmm = pyfm2dss.FastMarchingMethod()
+fmm = pyfm2d.FastMarchingMethod()
 
 #  8     8                        c: Grid dicing in latitude and longitude
 #  1                              c: Apply source grid refinement? (0=no,1=yes)

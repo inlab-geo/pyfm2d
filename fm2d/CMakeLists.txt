@@ -1,0 +1,5 @@
+enable_language(Fortran)
+file ( GLOB fm2d_fortran_functions *.f* )
+find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
+Python_add_library(libfm2d MODULE WITH_SOABI ${fm2d_fortran_functions})
+install(TARGETS libfm2d DESTINATION ./pyfm2d)
