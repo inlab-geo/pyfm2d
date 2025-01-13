@@ -22,7 +22,7 @@ basisModel - which contains functions to define, retrieve and manipulate 2D seis
 
 plot - which contains functions to plot the above
 
-WaveTracker - which implements first arrival travel time calculations between sources and receivers in the 2D mode. Optionally returns travel times, ray paths, wavefronts and Frechet derivative matrices.
+WaveTracker - which implements first arrival travel time calculations between sources and receivers in the 2D model. Optionally returns travel times, ray paths, wavefronts and Frechet derivative matrices.
 
 Here is the docstring of the function `calc_wavefronts()` which does the work:
 
