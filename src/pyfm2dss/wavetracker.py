@@ -612,26 +612,16 @@ def generate_surface_points(
     addCorners=True,
 ):
     out = []
+    x = np.linspace(extent[0], extent[1], nPerSide + 2)[1 : nPerSide + 1]
+    y = np.linspace(extent[2], extent[3], nPerSide + 2)[1 : nPerSide + 1]
     if surface[0]:
-        out += [
-            [extent[0], x]
-            for x in np.linspace(extent[2], extent[3], nPerSide + 2)[1 : nPerSide + 1]
-        ]
+        out += [[extent[0], _y] for _y in y]
     if surface[1]:
-        out += [
-            [extent[1], x]
-            for x in np.linspace(extent[2], extent[3], nPerSide + 2)[1 : nPerSide + 1]
-        ]
+        out += [[extent[1], _y] for _y in y]
     if surface[2]:
-        out += [
-            [x, extent[2]]
-            for x in np.linspace(extent[0], extent[1], nPerSide + 2)[1 : nPerSide + 1]
-        ]
+        out += [[_x, extent[2]] for _x in x]
     if surface[3]:
-        out += [
-            [x, extent[3]]
-            for x in np.linspace(extent[0], extent[1], nPerSide + 2)[1 : nPerSide + 1]
-        ]
+        out += [[_x, extent[3]] for _x in x]
     if addCorners:
         if surface[0] or surface[2]:
             out += [[extent[0], extent[2]]]
