@@ -1,7 +1,6 @@
 # Gallery of examples
 
 
-
 _Outputs produced by plot.displayModel class using results of WaveTracker class_
 
 <img src="images/simple_raypaths.png" alt="raypaths" width="400"/> <img src="images/simple_wavefronts.png" alt="wavefronts" width="370"/>
@@ -15,8 +14,13 @@ Cross borehole model with 10 sources and receivers. For notebook see
 [the borehole example](../examples/FMM_demo_borehole.ipynb)
 
 
-<img src="images/surfacewave_raypaths.png" alt="Distorted raypaths" width="500"/>
-<img src="images/surfacewave_rays-wavefronts.png" alt="wavefronts for a single source" width="480"/>
+<img src="images/surfacewave_raypaths.png" alt="Distorted raypaths" width="500"/><img src="images/surfacewave_rays-wavefronts.png" alt="wavefronts for a single source" width="480"/>
 
-Surface wave model with severely distorted raypaths. For notebook see
-[the surface wave example](../examples/FMM_demo Surface Wave.ipynb)
+Surface wave model with severely distorted raypaths.
+For notebook see [the surface wave example](../examples/FMM_demo%20Surface%20Wave.ipynb)
+
+
+<img src="images/checkerboard_raypaths.png" alt="Distorted raypaths" width="500"/><img src="images/checkerboard_rays_wavefronts.png" alt="wavefronts for a single source" width="468"/>
+
+Checkerboard model with severely distorted raypaths.
+For notebook see [the checkerboard example](../examples/FMM_demo%20checkerboard.ipynb)
