@@ -16,7 +16,7 @@ pip install git+https://github.com/inlab-geo/pyfm2dss
 ```
 ## Documentation
 
-This is a package of three main classes. 
+This is a package of three main user facing classes. 
 
 basisModel - which contains functions to define, retrieve and manipulate 2D seismic velocity or slowness models expressed in a choice of model bases.
 
@@ -92,6 +92,7 @@ A gallery of images produced by the plot class showing examples of raypaths and 
 
 ## Wrapping Strategy
 
+The classes above call ctype wrapper functions that allow communication with the original Fortran code.
 The idea is to refactor the original Fortran main into a subroutine inside a module that contains all
 variables used by main as global variables. That is they are moved out of the subroutine.
 As a consequence they have global scope and exist even when the main, that
