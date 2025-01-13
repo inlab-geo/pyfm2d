@@ -8,7 +8,7 @@ Created on Fri Jan 10 08:33:05 2025
 import numpy as np
 
 # import matplotlib.pyplot as plt
-import pyfm2dss as wt
+import pyfm2dss.wavetracker as wt
 
 # import time
 # from tqdm import tqdm
