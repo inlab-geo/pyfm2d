@@ -222,9 +222,9 @@ class CosineBasis2D:  # Model basis class
     def get_basis_image(
         self, j, nx=None, nz=None
     ):  # returns 2D image of model at chosen resolution
-        if nx == None:
+        if nx is None:
             nx = self.nx
-        if nz == None:
+        if nz is None:
             nz = self.nz
         dx, dz = (self.xmax - self.xmin) / nx, (self.zmax - self.zmin) / nz
         Zm, Xm = np.meshgrid(
@@ -249,7 +249,7 @@ class RayKernel1D:  # A linear data kernel class
         self.paths = paths
         self.constant = 1.0  # kernel is a constant along the ray (typically 1.0)
         d = np.zeros(self.nkernels)
-        if type(paths) == list:
+        if isinstance(paths, list):
             self.type = "1Dcurveray"
             dcumsum = []
             for k, p in enumerate(paths):

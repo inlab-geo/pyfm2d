@@ -204,9 +204,11 @@ class WaveTracker:
                 ttimes *= (
                     kms2deg  # adjust travel times because inputs are not in degrees
                 )
+            self.set_times(ttimes)
 
         if paths:
             raypaths = self.fmm.get_raypaths()
+            self.set_paths(raypaths)
 
         if frechet:
             # frechetvals = read_fmst_frechet(wdir+'/'+ffilename,noncushion,nodemap)
@@ -235,25 +237,17 @@ class WaveTracker:
                 x2 = -(v * v).reshape(-1)
                 frechetvals = frechetvals.multiply(x2)
 
+            self.set_frechet(frechetvals)
+
         if tfieldsource >= 0:
             tfieldvals = self.fmm.get_traveltime_fields()
             if not degrees:
                 tfieldvals *= (
                     kms2deg  # adjust travel times because inputs are not in degrees
                 )
+            self.set_tfield(tfieldvals, tfieldsource)
 
         #   add required information to class instances
-
-        if times:
-            self.set_times(ttimes)
-        if paths:
-            self.set_paths(raypaths)
-        if frechet:
-            self.set_frechet(frechetvals)
-        if tfieldsource > -1:
-            self.set_tfield(
-                tfieldvals, tfieldsource
-            )  # set traveltime field and source id
 
         self.fmm.deallocate_result_arrays()
 
@@ -493,9 +487,9 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
     def fit_coefficientes_v2s(
         self, nx=None, ny=None
     ):  # calculate slowness coefficients that correspond to a given set of velocity coefficients in model basis
-        if nx == None:
+        if nx is None:
             nx = self.nx
-        if ny == None:
+        if ny is None:
             ny = self.ny
         vtarget = self.get_velocity(nx=nx, ny=ny) - self.vref
         if not self.A_calc:
@@ -509,9 +503,9 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
     def fit_coefficients_s2v(
         self, nx=None, ny=None
     ):  # calculate velocity coefficients that correspond to a given set of slowness coefficients in model basis
-        if nx == None:
+        if nx is None:
             nx = self.nx
-        if ny == None:
+        if ny is None:
             ny = self.ny
         starget = (
             self.get_slowness(nx=nx, ny=ny) - self.sref
@@ -636,9 +630,9 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
     def get_image(
         self, nx=None, ny=None
     ):  # returns 2D image of model at chosen resolution
-        if nx == None:
+        if nx is None:
             nx = self.nx
-        if ny == None:
+        if ny is None:
             ny = self.ny
         dx, dy = (self.xmax - self.xmin) / nx, (self.ymax - self.ymin) / ny
         Ym, Xm = np.meshgrid(
@@ -655,9 +649,9 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
     def get_basis_image(
         self, j, nx=None, ny=None
     ):  # returns 2D image of model at chosen resolution
-        if nx == None:
+        if nx is None:
             nx = self.nx
-        if ny == None:
+        if ny is None:
             ny = self.ny
         dx, dy = (self.xmax - self.xmin) / nx, (self.ymax - self.ymin) / ny
         Ym, Xm = np.meshgrid(

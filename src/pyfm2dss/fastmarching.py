@@ -164,10 +164,8 @@ class FastMarchingMethod:
     def set_source_receiver_associations(self, srs):
         nsrc_ = ctypes.c_int(-99)
         self.libfm2dss.get_number_of_sources(ctypes.byref(nsrc_))
-        nsrc = nsrc_.value
         nrc_ = ctypes.c_int(-99)
         self.libfm2dss.get_number_of_receivers(ctypes.byref(nrc_))
-        nrc = nrc_.value
 
         srs_ = np.asfortranarray(srs, dtype=np.int32)
         srs_ = self.libfm2dss.set_source_receiver_associations(
@@ -225,7 +223,6 @@ class FastMarchingMethod:
             ctypes.byref(nvx_), ctypes.byref(nvz_)
         )
 
-        ##print(nvx_,nvz_)
         goxd_ = ctypes.c_float(-99.9)
         gozd_ = ctypes.c_float(-99.9)
 
@@ -278,7 +275,6 @@ class FastMarchingMethod:
         )
 
         ttimes = np.array(ttimes_)
-        tids = np.array(tids_)
 
         return ttimes
 

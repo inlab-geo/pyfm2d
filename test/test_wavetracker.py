@@ -310,7 +310,7 @@ myfmm.fmm.deallocate_result_arrays()
 sys.exit()
 
 
-fmm.calc_wavefronts(g.getVelocity(), recs, srcs, verbose=True, frechet=True, paths=True)
-print(" Number of paths calculated = ", len(fmm.paths))
-print(" Number of travel times calculated = ", len(fmm.ttimes))
-print(" Shape of frechet matrix = ", fmm.frechet.shape)
+myfmm.calc_wavefronts(g.getVelocity(), recs, srcs, verbose=True, frechet=True, paths=True)
+print(" Number of paths calculated = ", len(myfmm.paths))
+print(" Number of travel times calculated = ", len(myfmm.ttimes))
+print(" Shape of frechet matrix = ", myfmm.frechet.shape)
