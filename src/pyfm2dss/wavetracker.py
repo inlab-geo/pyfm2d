@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
-from ._pyfm2dss import FastMarchingMethod
-from . import _bases as base
+from .pyfm2dss import FastMarchingMethod
+from . import bases as base
 from scipy.interpolate import RectBivariateSpline
 from scipy.sparse import csr_matrix
 import faulthandler
