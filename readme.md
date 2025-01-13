@@ -88,7 +88,7 @@ More detailed examples of its usage can be found in
 
 ## Gallery
 
-A gallery of images produce by the plot class showing examples of raypaths and wavefront with severe ray bending can be found in directory `gallery`
+A gallery of images produced by the plot class showing examples of raypaths and wavefront with severe ray bending can be found in directory `gallery`
 
 ## Wrapping Strategy
 
