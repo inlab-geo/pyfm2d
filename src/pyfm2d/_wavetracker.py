@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
-from ._pyfm2d import FastMarchingMethod
+from ._pyfm2dss import FastMarchingMethod
 from . import _bases as base
 from scipy.interpolate import RectBivariateSpline
 from scipy.sparse import csr_matrix
@@ -28,6 +28,14 @@ faulthandler.enable()
 # January 2025
 # --------------------------------------------------------------------------------------------
 
+class Error(Exception):
+    """Base class for other exceptions"""
+    pass
+
+class Inputerror(Exception):
+    """Raised when necessary inputs are missing"""
+    def __init__(self,msg=''):
+        super().__init__(msg)
 
 class WaveTracker:
 
@@ -112,7 +120,13 @@ class WaveTracker:
 
         recs = recs.reshape(-1, 2)  # ensure receiver array is 2D and float32
         srcs = srcs.reshape(-1, 2)  # ensure source array is 2D and float32
-        # check sources and receives inside extent
+        # check sources and receivers inside extent
+        if(not (all(recs[:,0] <= extent[1]) and all(recs[:,0] >= extent[0]) and all(recs[:,1] <= extent[3]) and all(recs[:,1] >= extent[2]))):
+            raise Inputerror(msg='Input Error: One or more receiver lies outside of model extent: '+str(extent)+
+                             '\nRemedy: adjust receiver locations and run again.')
+        if(not (all(srcs[:,0] <= extent[1]) and all(srcs[:,0] >= extent[0]) and all(srcs[:,1] <= extent[3]) and all(srcs[:,1] >= extent[2]))):
+            raise Inputerror(msg='Input Error: One or more source lies outside of model extent: '+str(extent)+
+                             '\nRemedy: adjust source locations and run again.')
         
         ns = len(srcs)
 
