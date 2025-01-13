@@ -2817,7 +2817,8 @@ CONTAINS
     	frechet_nnz=0
     end if
 
-   	if (wrgf .eq. 1) then
+   	!if (wrgf .eq. 1) then ! MS changed to allow consistency with use of wrgf elsewhere
+   	if (wrgf .ne. 0) then
    		!!	print*,">>> paths"
     	npaths=nsrc*nrc
     	max_nppts=(gdz*gdx*nvx*nvz)
@@ -2851,7 +2852,8 @@ CONTAINS
     	deallocate(frechet_val)
     end if
 
-   	if (wrgf .eq. 1) then
+   	!if (wrgf .eq. 1) then ! MS changed to allow consistency with use of wrgf elsewhere
+   	if (wrgf .ne. 0) then
    	   	!!		print*,">>> paths"
 
     	deallocate(paths)
@@ -3588,8 +3590,6 @@ CONTAINS
 !
 ! Loop through all sources and find traveltime fields
 !
-     ! MS added to debug
-     !write(6,*) " scx",scx,"scz",scz
       DO i = 1, nsrc
          x = scx(i)
          z = scz(i)

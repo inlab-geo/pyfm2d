@@ -115,13 +115,8 @@ myfmm = wt.WaveTracker()
 
 # test options
 
-<<<<<<< Updated upstream
-paths=False
-frechet=False
-=======
 paths=True
 frechet=True
->>>>>>> Stashed changes
 times=True
 tfieldsource=-1
 tfieldsource=0
@@ -137,7 +132,7 @@ velocityderiv=False
 dicex=8
 dicey=8
 lpaths,lttimes,lfrechet = 0,0,0                   
-if(paths): lpaths=1          
+if(paths): lpaths=-1          
 if(times): lttimes = 1
 if(frechet): lfrechet = 1     
 
