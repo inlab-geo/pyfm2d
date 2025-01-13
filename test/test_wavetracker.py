@@ -134,10 +134,10 @@ extent = [0.0, 20.0 * factor, 0.0, 30.0 * factor]
 # m=get_spherical_model(extent,32,48)
 m = get_gauss_model(extent, 32, 48)
 g = wt.BasisModel(m, extent=extent)
-recs = g.generate_surface_points(
+recs = wt.generate_surface_points(
     10, extent=extent, surface=[False, True, False, False], addCorners=False
 )  # generate receivers around edge
-srcs = g.generate_surface_points(
+srcs = wt.generate_surface_points(
     10, extent=extent, surface=[True, False, False, False], addCorners=False
 )  # generate receivers around edge
 

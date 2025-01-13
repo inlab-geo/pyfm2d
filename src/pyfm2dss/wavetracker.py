@@ -308,53 +308,6 @@ class GridModel:  # This is for the original regular model grid (without using t
         assert self.velocities.shape == s.shape
         self.velocities = 1.0 / s
 
-    def generate_surface_points(
-        self,
-        nPerSide,
-        extent=(0, 1, 0, 1),
-        surface=[True, True, True, True],
-        addCorners=True,
-    ):
-        out = []
-        if surface[0]:
-            out += [
-                [extent[0], x]
-                for x in np.linspace(extent[2], extent[3], nPerSide + 2)[
-                    1 : nPerSide + 1
-                ]
-            ]
-        if surface[1]:
-            out += [
-                [extent[1], x]
-                for x in np.linspace(extent[2], extent[3], nPerSide + 2)[
-                    1 : nPerSide + 1
-                ]
-            ]
-        if surface[2]:
-            out += [
-                [x, extent[2]]
-                for x in np.linspace(extent[0], extent[1], nPerSide + 2)[
-                    1 : nPerSide + 1
-                ]
-            ]
-        if surface[3]:
-            out += [
-                [x, extent[3]]
-                for x in np.linspace(extent[0], extent[1], nPerSide + 2)[
-                    1 : nPerSide + 1
-                ]
-            ]
-        if addCorners:
-            if surface[0] or surface[2]:
-                out += [[extent[0], extent[2]]]
-            if surface[0] or surface[3]:
-                out += [[extent[0], extent[3]]]
-            if surface[1] or surface[2]:
-                out += [[extent[1], extent[2]]]
-            if surface[1] or surface[3]:
-                out += [[extent[1], extent[3]]]
-        return np.array(out)
-
 
 class BasisModel:  # This is for a 2D model basis accessed through the package basis.py
     """
@@ -629,73 +582,66 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
         )
         return self.basis.evaluate(j, (Xm, Ym))
 
-    # --------------------------------------------------------------------------------------------
-    # Other utility functions
-    #
-    # --------------------------------------------------------------------------------------------
 
-    def norm(self, x):
-        return np.sqrt(x.dot(x))
+# --------------------------------------------------------------------------------------------
+# Utility functions
+# --------------------------------------------------------------------------------------------
+def norm(x):
+    return np.sqrt(x.dot(x))
 
-    def normalise(self, x):
-        return x / self.norm(x)
 
-    def png_to_model(self, pngfile, nx, ny, bg=1.0, sc=1.0):
-        png = Image.open(pngfile)
-        png.load()
-        model = sc * (
-            bg
-            + np.asarray(png.convert("L").resize((nx, ny)).transpose(Image.ROTATE_270))
-            / 255.0
-        )
-        return model
+def normalise(x):
+    return x / norm(x)
 
-    def generate_surface_points(
-        self,
-        nPerSide,
-        extent=(0, 1, 0, 1),
-        surface=[True, True, True, True],
-        addCorners=True,
-    ):
-        out = []
-        if surface[0]:
-            out += [
-                [extent[0], x]
-                for x in np.linspace(extent[2], extent[3], nPerSide + 2)[
-                    1 : nPerSide + 1
-                ]
-            ]
-        if surface[1]:
-            out += [
-                [extent[1], x]
-                for x in np.linspace(extent[2], extent[3], nPerSide + 2)[
-                    1 : nPerSide + 1
-                ]
-            ]
-        if surface[2]:
-            out += [
-                [x, extent[2]]
-                for x in np.linspace(extent[0], extent[1], nPerSide + 2)[
-                    1 : nPerSide + 1
-                ]
-            ]
-        if surface[3]:
-            out += [
-                [x, extent[3]]
-                for x in np.linspace(extent[0], extent[1], nPerSide + 2)[
-                    1 : nPerSide + 1
-                ]
-            ]
-        if addCorners:
-            if surface[0] or surface[2]:
-                out += [[extent[0], extent[2]]]
-            if surface[0] or surface[3]:
-                out += [[extent[0], extent[3]]]
-            if surface[1] or surface[2]:
-                out += [[extent[1], extent[2]]]
-            if surface[1] or surface[3]:
-                out += [[extent[1], extent[3]]]
-        return np.array(out)
+
+def png_to_model(pngfile, nx, ny, bg=1.0, sc=1.0):
+    png = Image.open(pngfile)
+    png.load()
+    model = sc * (
+        bg
+        + np.asarray(png.convert("L").resize((nx, ny)).transpose(Image.ROTATE_270))
+        / 255.0
+    )
+    return model
+
+
+def generate_surface_points(
+    nPerSide,
+    extent=(0, 1, 0, 1),
+    surface=[True, True, True, True],
+    addCorners=True,
+):
+    out = []
+    if surface[0]:
+        out += [
+            [extent[0], x]
+            for x in np.linspace(extent[2], extent[3], nPerSide + 2)[1 : nPerSide + 1]
+        ]
+    if surface[1]:
+        out += [
+            [extent[1], x]
+            for x in np.linspace(extent[2], extent[3], nPerSide + 2)[1 : nPerSide + 1]
+        ]
+    if surface[2]:
+        out += [
+            [x, extent[2]]
+            for x in np.linspace(extent[0], extent[1], nPerSide + 2)[1 : nPerSide + 1]
+        ]
+    if surface[3]:
+        out += [
+            [x, extent[3]]
+            for x in np.linspace(extent[0], extent[1], nPerSide + 2)[1 : nPerSide + 1]
+        ]
+    if addCorners:
+        if surface[0] or surface[2]:
+            out += [[extent[0], extent[2]]]
+        if surface[0] or surface[3]:
+            out += [[extent[0], extent[3]]]
+        if surface[1] or surface[2]:
+            out += [[extent[1], extent[2]]]
+        if surface[1] or surface[3]:
+            out += [[extent[1], extent[3]]]
+    return np.array(out)
 
 
 # --------------------------------------------------------------------------------------------
