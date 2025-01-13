@@ -1,7 +1,7 @@
 # Gallery of examples
 
 
-_Outputs produced by `plot.displayModel` class using models build with` basisModel` class and results of `WaveTracker class`_
+_Outputs produced by `displayModel` class using models build with` basisModel` class and results of `WaveTracker` class_
 
 <img src="images/simple_raypaths.png" alt="raypaths" width="400"/> <img src="images/simple_wavefronts.png" alt="wavefronts" width="370"/>
 
