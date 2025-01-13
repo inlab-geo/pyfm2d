@@ -305,9 +305,7 @@ class WaveTracker:
         return nx, ny, dlat, dlong, vc
 
 
-class gridModel(
-    object
-):  # This is for the original regular model grid (without using the basis.py package)
+class GridModel:  # This is for the original regular model grid (without using the basis.py package)
 
     def __init__(self, velocities, extent=(0, 1, 0, 1)):
         self.nx, self.ny = velocities.shape
@@ -381,9 +379,7 @@ class gridModel(
         return np.array(out)
 
 
-class basisModel(
-    object
-):  # This is for a 2D model basis accessed through the package basis.py
+class BasisModel:  # This is for a 2D model basis accessed through the package basis.py
     """
 
     A model class which is an interface to package basis.py to incorporate local or global 2D bases for tomography.
@@ -429,9 +425,9 @@ class basisModel(
             self.yy = np.linspace(self.ymin, self.ymax, self.ny + 1)
             # self.dicex = dicex
             # self.dicey = dicey
-            self.basis = base.pixelbasis2D(self.xx, self.yy)
+            self.basis = base.PixelBasis2D(self.xx, self.yy)
         elif self.basis_type == "2Dcosine":
-            self.basis = base.cosinebasis2D(
+            self.basis = base.CosineBasis2D(
                 self.xmin,
                 self.xmax,
                 self.ymin,
@@ -739,7 +735,7 @@ class basisModel(
         return np.array(out)
 
 
-class plot:  # This is a set of plotting routines to display 2D velocity models and optionally raypaths and wavefronts on top.
+class Plot:  # This is a set of plotting routines to display 2D velocity models and optionally raypaths and wavefronts on top.
     """
 
     A model class containing plot routines for display of 2D velocity/slowness models and optionally raypaths and wavefronts on top.

@@ -64,7 +64,7 @@ m = np.array(
     ]
 )
 
-g = wt.gridModel(m)
+g = wt.GridModel(m)
 mp = g.getVelocity()
 mp[1, 1] = 0.7
 mp[2, 2] = 0.9
@@ -127,7 +127,7 @@ factor = 1.0
 extent = [0.0, 20.0 * factor, 0.0, 30.0 * factor]
 # m=get_spherical_model(extent,32,48)
 m = get_gauss_model(extent, 32, 48)
-g = wt.basisModel(m, extent=extent)
+g = wt.BasisModel(m, extent=extent)
 recs = g.generateSurfacePoints(
     10, extent=extent, surface=[False, True, False, False], addCorners=False
 )  # generate receivers around edge

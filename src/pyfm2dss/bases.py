@@ -11,7 +11,7 @@ import pickle
 # Define available basis classes
 
 
-class pixelbasis2D(object):  # Model basis class
+class PixelBasis2D:  # Model basis class
     """
     A 2D Model pixel basis object.
     A class that is used by various routines to calculate Jacobians through numerical integration.
@@ -118,7 +118,7 @@ class BasisError(Exception):
         super().__init__("\n Basis id " + str(cset) + " not recognized. \n")
 
 
-class cosinebasis2D(object):  # Model basis class
+class CosineBasis2D:  # Model basis class
     """
     A 2D Model cosine basis object.
     A class that is used by various routines to calculate Jacobians through numerical integration.
@@ -236,7 +236,7 @@ class cosinebasis2D(object):  # Model basis class
     # Define available data kernel classes
 
 
-class raykernel1D(object):  # A linear data kernel class
+class RayKernel1D:  # A linear data kernel class
     """
     Data kernel object.
 
@@ -270,7 +270,7 @@ class raykernel1D(object):  # A linear data kernel class
 
     def evaluate(self, i):  # evaluate the ith data kernel at location (x,y,z)
         if i < 0 or i >= self.nkernels:
-            raise KernelOBSerror(i)
+            raise KernelOBSError(i)
 
         return self.constant  # Return constant along ray for integration
 
@@ -282,7 +282,7 @@ class raykernel1D(object):  # A linear data kernel class
         # For a curved ray (self.type = '1D') this is where one would specify (x,y,z) as a function of length l.
         #
         if i < 0 or i >= self.nkernels:
-            raise KernelOBSerror(i)
+            raise KernelOBSError(i)
         # if(l <= 0): return self.paths[i][0]
         # if(l >= self.lengths[i]): return self.paths[i][-1]
         if self.type == "1Dstraightray":
@@ -315,7 +315,7 @@ class Error(Exception):
     pass
 
 
-class KernelOBSerror(Exception):
+class KernelOBSError(Exception):
     """Raised when input kernel id does not exist in kernel definition"""
 
     def __init__(self, cset=[]):

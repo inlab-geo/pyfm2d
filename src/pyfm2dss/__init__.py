@@ -1,4 +1,4 @@
 from .fastmarching import FastMarchingMethod
-from .wavetracker import WaveTracker, basisModel, plot
+from .wavetracker import WaveTracker, BasisModel, Plot
 
-__all__ = ["FastMarchingMethod", "WaveTracker", "basisModel", "plot"]
+__all__ = ["FastMarchingMethod", "WaveTracker", "BasisModel", "Plot"]
