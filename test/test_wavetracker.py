@@ -9,6 +9,7 @@ import numpy as np
 
 # import matplotlib.pyplot as plt
 import pyfm2dss.wavetracker as wt
+from pyfm2dss import fastmarching as fmm
 
 # import time
 # from tqdm import tqdm
@@ -173,7 +174,7 @@ if frechet:
     lfrechet = 1
 
 
-myfmm.fmm.set_solver_options(
+fmm.set_solver_options(
     np.int32(dicex),
     np.int32(dicey),
     np.int32(sourcegridrefine),
@@ -189,7 +190,7 @@ myfmm.fmm.set_solver_options(
 )
 
 gdx, gdz, asgr, sgdl, sgs, earth, fom, snb, fsrt, cfd, wttf, wrgf = (
-    myfmm.fmm.get_solver_options()
+    fmm.get_solver_options()
 )
 
 print(
@@ -236,9 +237,9 @@ dlat = np.float32(dlat)
 dlong = np.float32(dlong)
 vc = vc.astype(np.float32)
 
-myfmm.fmm.set_velocity_model(nvy, nvx, extent[3], extent[0], dlat, dlong, vc)
+fmm.set_velocity_model(nvy, nvx, extent[3], extent[0], dlat, dlong, vc)
 
-nvxo, nvzo, goxd, gozd, dvxd, dvzd, velv = myfmm.fmm.get_velocity_model()
+nvxo, nvzo, goxd, gozd, dvxd, dvzd, velv = fmm.get_velocity_model()
 
 print("Original velocity paramaters:  ", nvx, nvy, extent[3], extent[0], dlat, dlong)
 print("Recovered velocity paramaters: ", nvxo, nvzo, goxd, gozd, dvxd, dvzd)
@@ -253,18 +254,18 @@ srcs = srcs.reshape(-1, 2)
 rcy = np.float32(recs[:, 1])
 rcx = np.float32(recs[:, 0])
 
-myfmm.fmm.set_receivers(rcy, rcx)  # set receivers
+fmm.set_receivers(rcy, rcx)  # set receivers
 
 scy = np.float32(srcs[:, 1])
 scx = np.float32(srcs[:, 0])
 
-myfmm.fmm.set_sources(scy, scx)  # set sources
+fmm.set_sources(scy, scx)  # set sources
 
-scyo, scxo = myfmm.fmm.get_sources()
+scyo, scxo = fmm.get_sources()
 
 print("Source\n", "Original", srcs, "\n", "recovered", scxo, scyo)
 
-rcyo, rcxo = myfmm.fmm.get_receivers()
+rcyo, rcxo = fmm.get_receivers()
 
 print("Receivers\n", "Original", recs[:, 0], recs[:, 1], "\n", "recovered", rcxo, rcyo)
 
@@ -273,31 +274,31 @@ srs = np.ones(
     (len(recs), len(srcs)), dtype=np.int32
 )  # set up time calculation between all sources and receivers
 
-myfmm.fmm.set_source_receiver_associations(srs)
+fmm.set_source_receiver_associations(srs)
 
-srso = myfmm.fmm.get_source_receiver_associations()
+srso = fmm.get_source_receiver_associations()
 
 print("Original associations:\n", srs)
 print("Recovered associations:\n", srso)
 
 
-myfmm.fmm.allocate_result_arrays()  # allocate memory for Fortran arrays
+fmm.allocate_result_arrays()  # allocate memory for Fortran arrays
 
-myfmm.fmm.track()
+fmm.track()
 # check results
 kms2deg = 180.0 / (earthradius * np.pi)
 
 if times:
-    ttimes = myfmm.fmm.get_traveltimes()
+    ttimes = fmm.get_traveltimes()
     if not degrees:
         ttimes *= kms2deg  # adjust travel times because inputs are not in degrees
 
 if paths:
-    raypaths = myfmm.fmm.get_raypaths()
+    raypaths = fmm.get_raypaths()
 
 if frechet:
     frechetvals = (
-        myfmm.fmm.get_frechet_derivatives()
+        fmm.get_frechet_derivatives()
     )  # THIS IS PROBABLY LACKS ADJUSTMENT FOR CUSHION NODES see routine read_fmst_frechet in _core.py
     if not degrees:
         frechetvals *= kms2deg  # adjust travel times because inputs are not in degrees
@@ -306,11 +307,11 @@ if frechet:
     #    frechetvals = frechetvals.multiply(x2)
 
 if tfieldsource >= 0:
-    tfieldvals = myfmm.fmm.get_traveltime_fields()
+    tfieldvals = fmm.get_traveltime_fields()
     if not degrees:
         tfieldvals *= kms2deg  # adjust travel times because inputs are not in degrees
 
-myfmm.fmm.deallocate_result_arrays()
+fmm.deallocate_result_arrays()
 
 sys.exit()
 

@@ -1,11 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
-from .fastmarching import FastMarchingMethod
-from . import bases as base
 from scipy.interpolate import RectBivariateSpline
 from scipy.sparse import csr_matrix
 import faulthandler
+
+from . import fastmarching as fmm
+from . import bases as base
 
 faulthandler.enable()
 
@@ -30,10 +31,6 @@ faulthandler.enable()
 
 
 class WaveTracker:
-
-    def __init__(self):
-        self.fmm = FastMarchingMethod()
-
     def set_times(self, t):
         self.ttimes = t.copy()
 
@@ -148,7 +145,7 @@ class WaveTracker:
         if tfieldsource >= 0:
             tsource = 1  # int to calculate travel fields (0=no,1=all)
 
-        self.fmm.set_solver_options(
+        fmm.set_solver_options(
             np.int32(dicex),  # set solver options
             np.int32(dicey),
             np.int32(sourcegridrefine),
@@ -166,13 +163,13 @@ class WaveTracker:
         scx = np.float32(srcs[:, 0])
         scy = np.float32(srcs[:, 1])
 
-        self.fmm.set_sources(
+        fmm.set_sources(
             scy, scx
         )  # set sources (ordering inherited from fm2dss.f90)
 
         rcx = np.float32(recs[:, 0])
         rcy = np.float32(recs[:, 1])
-        self.fmm.set_receivers(rcy, rcx)  # set receivers
+        fmm.set_receivers(rcy, rcx)  # set receivers
 
         nvx, nvy, dlat, dlong, vc = self.build_velocity_grid(
             v, extent
@@ -185,21 +182,21 @@ class WaveTracker:
         dlong = np.float32(dlong)
         vc = vc.astype(np.float32)
 
-        self.fmm.set_velocity_model(nvy, nvx, extent[3], extent[0], dlat, dlong, vc)
+        fmm.set_velocity_model(nvy, nvx, extent[3], extent[0], dlat, dlong, vc)
 
         srs = np.ones(
             (len(recs), len(srcs)), dtype=np.int32
         )  # set up time calculation between all sources and receivers
 
-        self.fmm.set_source_receiver_associations(srs)
+        fmm.set_source_receiver_associations(srs)
 
-        self.fmm.allocate_result_arrays()  # allocate memory for Fortran arrays
+        fmm.allocate_result_arrays()  # allocate memory for Fortran arrays
 
-        self.fmm.track()  # run fmst wavefront tracker code
+        fmm.track()  # run fmst wavefront tracker code
 
         # collect results
         if times:
-            ttimes = self.fmm.get_traveltimes()
+            ttimes = fmm.get_traveltimes()
             if not degrees:
                 ttimes *= (
                     kms2deg  # adjust travel times because inputs are not in degrees
@@ -207,12 +204,12 @@ class WaveTracker:
             self.set_times(ttimes)
 
         if paths:
-            raypaths = self.fmm.get_raypaths()
+            raypaths = fmm.get_raypaths()
             self.set_paths(raypaths)
 
         if frechet:
             # frechetvals = read_fmst_frechet(wdir+'/'+ffilename,noncushion,nodemap)
-            frechetvals = self.fmm.get_frechet_derivatives()
+            frechetvals = fmm.get_frechet_derivatives()
             if not degrees:
                 frechetvals *= (
                     kms2deg  # adjust travel times because inputs are not in degrees
@@ -240,7 +237,7 @@ class WaveTracker:
             self.set_frechet(frechetvals)
 
         if tfieldsource >= 0:
-            tfieldvals = self.fmm.get_traveltime_fields()
+            tfieldvals = fmm.get_traveltime_fields()
             if not degrees:
                 tfieldvals *= (
                     kms2deg  # adjust travel times because inputs are not in degrees
@@ -249,7 +246,7 @@ class WaveTracker:
 
         #   add required information to class instances
 
-        self.fmm.deallocate_result_arrays()
+        fmm.deallocate_result_arrays()
 
         return
 
