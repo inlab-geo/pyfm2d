@@ -131,7 +131,7 @@ CONTAINS
       IF (sw .eq. 1) then
          isx = 90.0 - isx*180.0/pi
          isz = isz*180.0/pi
-         WRITE (6, *) "Source lies outside bounds of model (lat,long)= ", isx, isz
+         WRITE (6, *) "1: Source lies outside bounds of model (lat,long)= ", isx, isz
          WRITE (6, *) "TERMINATING PROGRAM!!!"
          STOP
       END IF
@@ -2790,13 +2790,13 @@ CONTAINS
 
    subroutine allocate_result_arrays() bind(c, name="allocate_result_arrays")
 
-	! We don't know the size of some of the arrays beforhand thus we make an educated 
+	! We don't know the size of some of the arrays beforehand thus we make an educated 
 	! guess.
 	!
     ! ttimes  - source receiver travel times - fsrt
     ! frechet - frechet derivatives - cfd
-    ! rpaths  - raypaths - wttf
-    ! tfields  - travetime field - wrgf
+    ! rpaths  - raypaths - wrgf
+    ! tfields  - travetime field - wttf
     !	
 
 
@@ -2810,24 +2810,25 @@ CONTAINS
        
   	if (cfd .EQ. 1) then
   		!!	print*,">>> frechet "
-  		max_frechet_nnz=nsrc*nrc*nvx*nvz
+  		max_frechet_nnz=nsrc*nrc*(nvx+2)*(nvz+2)
     	allocate(frechet_irow(max_frechet_nnz))
     	allocate(frechet_icol(max_frechet_nnz))
     	allocate(frechet_val(max_frechet_nnz))
     	frechet_nnz=0
     end if
 
-   	if (wttf .eq. 1) then
+   	!if (wrgf .eq. 1) then ! MS changed to allow consistency with use of wrgf elsewhere
+   	if (wrgf .ne. 0) then
    		!!	print*,">>> paths"
     	npaths=nsrc*nrc
-    	max_nppts=(nvx*nvz)
+    	max_nppts=(gdz*gdx*nvx*nvz)
     	allocate(paths(npaths,max_nppts,2))
     	allocate(nppts(npaths))
     	npaths=0
     	nppts=0
     end if
     
-    if (wrgf .eq. 1) then 
+    if (wttf .eq. 1) then 
     	!!	print*,">>> tfields"
     	allocate(tfields(nsrc,nnz,nnx))    
     end if
@@ -2851,14 +2852,15 @@ CONTAINS
     	deallocate(frechet_val)
     end if
 
-   	if (wttf .eq. 1) then
+   	!if (wrgf .eq. 1) then ! MS changed to allow consistency with use of wrgf elsewhere
+   	if (wrgf .ne. 0) then
    	   	!!		print*,">>> paths"
 
     	deallocate(paths)
     	deallocate(nppts)
     end if
     
-    if (wrgf .eq. 1) then 
+    if (wttf .eq. 1) then 
         !!		print*,">>> tfields"
 
     deallocate(tfields)    
@@ -3153,9 +3155,12 @@ CONTAINS
             IF (isx .lt. 1 .or. isx .gt. nnx) sw = 1
             IF (isz .lt. 1 .or. isz .gt. nnz) sw = 1
             IF (sw .eq. 1) then
+               ! MS added to debug
+               !write (6, *)" x, gox,dnx,nnx, isx",x,gox,dnx,nnx,isx
+               !write (6, *)" z, goz,dnz,nnz, isz",z,goz,dnz,nnz,isz
                isx = 90.0 - isx*180.0/pi
                isz = isz*180.0/pi
-               WRITE (6, *) "Source lies outside bounds of model (lat,long)= ", isx, isz
+               WRITE (6, *) "2: Source lies outside bounds of model (lat,long)= ", isx, isz
                WRITE (6, *) "TERMINATING PROGRAM!!!"
                STOP
             END IF
@@ -3388,7 +3393,7 @@ CONTAINS
       IF (checkstat > 0) THEN
          WRITE (6, *) 'Error with DEALLOCATE: PROGRAM fmmin2d: final deallocate'
       END IF
-      WRITE (6, *) 'Program fm2dss has finished successfully!'
+      !WRITE (6, *) 'Program fm2dss has finished successfully!'
    END SUBROUTINE track
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -3615,7 +3620,7 @@ CONTAINS
             IF (sw .eq. 1) then
                isx = 90.0 - isx*180.0/pi
                isz = isz*180.0/pi
-               WRITE (6, *) "Source lies outside bounds of model (lat,long)= ", isx, isz
+               WRITE (6, *) "3: Source lies outside bounds of model (lat,long)= ", isx, isz
                WRITE (6, *) "TERMINATING PROGRAM!!!"
                STOP
             END IF

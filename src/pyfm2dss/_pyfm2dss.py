@@ -289,7 +289,7 @@ class FastMarchingMethod:
         frechet_nnz=frechet_nnz_.value
         
         frechet_irow_ = numpy.asfortranarray(numpy.zeros(frechet_nnz), dtype=numpy.int32)
-        frechet_icol_ = numpy.asfortranarray(numpy.zeros(frechet_nnz), dtype=numpy.int32)
+        frechet_icol_ = numpy.asfortranarray(numpy.zeros(frechet_nnz), dtype=numpy.int32) 
         frechet_val_ = numpy.asfortranarray(numpy.zeros(frechet_nnz), dtype=numpy.float32)
 
         self.libfm2dss.get_frechet_derivatives(
@@ -319,7 +319,7 @@ class FastMarchingMethod:
         nrc = nrc_.value
 
         return scipy.sparse.csr_array(
-            (jval, (jrow, jcol)), shape=(nsrc * nrc, nvx * nvz)
+            (jval, (jrow, jcol)), shape=(nsrc * nrc, (nvx+2) * (nvz+2))
         )
 
     def get_raypaths(self):

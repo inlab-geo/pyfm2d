@@ -35,6 +35,7 @@ fmm.set_sources(scx, scz)
 print('> read_receivers')
 fmm.read_receivers("receivers.dat")
 rcx, rcz = fmm.get_receivers()
+print('rcx',rcx,'\nrcz',rcz)
 fmm.set_receivers(rcx, rcz)
 
 print('> read_source_receiver_associations')
