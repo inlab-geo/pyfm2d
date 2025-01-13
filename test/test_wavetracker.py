@@ -17,6 +17,11 @@ import sys
 # Simple test routine for wavetracker class and its use of low level class functions in pyfm2dss
 
 
+# I DON'T THINK THIS ACTUALLY TESTS THE WAVETRACKER
+# IT ONLY EVER CALLED THE WT.FMM FUNCTIONS
+# THE sys.exit() AT THE END IS CALLED BEFORE ANY WAVETRACKER FUNCTIONS ARE CALLED
+
+
 def build_velocitygrid(
     v, extent
 ):  # add cushion nodes about velocity model to be compatible with fm2dss.f90 input
@@ -310,7 +315,9 @@ myfmm.fmm.deallocate_result_arrays()
 sys.exit()
 
 
-myfmm.calc_wavefronts(g.getVelocity(), recs, srcs, verbose=True, frechet=True, paths=True)
+myfmm.calc_wavefronts(
+    g.getVelocity(), recs, srcs, verbose=True, frechet=True, paths=True
+)
 print(" Number of paths calculated = ", len(myfmm.paths))
 print(" Number of travel times calculated = ", len(myfmm.ttimes))
 print(" Shape of frechet matrix = ", myfmm.frechet.shape)
