@@ -8,7 +8,7 @@ _Outputs produced by `displayModel` class using models built with` basisModel` c
 Simple 2D velocity model with raypaths and wavefronts. For notebook see
 [the borehole example](../examples/FMM_demo_borehole.ipynb)
 
-<img src="images/borehole2_raypaths.jpeg" alt="100 raypaths" width="400"/> <img src="images/borehole2_wavefronts.png" alt="wavefronts for a single source" width="325"/>
+<img src="images/borehole2_raypaths.jpg" alt="100 raypaths" width="400"/> <img src="images/borehole2_wavefronts.png" alt="wavefronts for a single source" width="325"/>
 
 Cross borehole model with 10 sources and receivers. For notebook see
 [the borehole example](../examples/FMM_demo_borehole.ipynb)
