@@ -80,15 +80,15 @@ fmm.calc_wavefronts(g.getVelocity(),recs,srcs)
 ```
 More detailed examples of its usage can be found in
 
-`examples/FMM_demo_borehole.ipynb` - Cross borehole example
+[`examples/FMM_demo_borehole.ipynb`](./examples/FMM_demo_borehole.ipynb) - Cross borehole example
 
-`examples/FMM_demo Surface Wave.ipynb` - Surface waves across Australia
+[`examples/FMM_demo Surface Wave.ipynb`](./examples/FMM_demo%20Surface%20Wave.ipynb) - Surface waves across Australia
 
-`examples/FMM_demo checkerboard.ipynb` - 2D checkerboard model.
+[`examples/FMM_demo checkerboard.ipynb`](./examples/FMM_demo%20checkerboard.ipynb) - 2D checkerboard model.
 
 ## Gallery
 
-A gallery of images produced by the plot class showing examples of raypaths and wavefront with severe ray bending can be found in directory `gallery`
+A gallery of images produced by the plot class showing examples of raypaths and wavefront with severe ray bending can be found in directory [galley](./gallery/index)
 
 ## Wrapping Strategy
 
