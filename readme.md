@@ -57,7 +57,7 @@ A function to perform 2D Fast Marching of wavefronts from sources in a 2D veloci
         WaveTracker.frechet, csr_matrix      : 2D array of shape (nrays, nx*ny) in sparse csr format containing derivatives of travel 
                                                time with respect to input velocity (velocityderiv=True) or slowness (velocityderiv=False) model values.                                               
     Notes:
-        Internally variables are converted to numpy.float32 to be consistent with Fortran code fm2dss.f90
+        Internally variables are converted to np.float32 to be consistent with Fortran code fm2dss.f90
 
 ```
 ## Example

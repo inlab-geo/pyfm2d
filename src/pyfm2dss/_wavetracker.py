@@ -106,7 +106,7 @@ class WaveTracker:
                                                    time with respect to input velocity (velocityderiv=True) or slowness (velocityderiv=False) model values.
 
         Notes:
-            Internally variables are converted to numpy.float32 to be consistent with Fortran code fm2dss.f90.
+            Internally variables are converted to np.float32 to be consistent with Fortran code fm2dss.f90.
 
         """
 
