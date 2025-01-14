@@ -10,6 +10,9 @@ import numpy as np
 import pyfm2d.wavetracker as wt
 
 
+PLOT = False
+
+
 def get_sources():
     return np.array([0.1, 0.15])
 
@@ -50,3 +53,10 @@ def test_calc_wavefonts():
         frechet=True,
         paths=True,
     )
+
+    assert wavetracker.ttimes is not None
+    assert wavetracker.paths is not None
+    assert wavetracker.frechet is not None
+
+    if PLOT:
+        wt.display_model(g.get_velocity(), paths=wavetracker.paths)
