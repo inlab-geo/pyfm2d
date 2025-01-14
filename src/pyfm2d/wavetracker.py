@@ -30,6 +30,19 @@ faulthandler.enable()
 # --------------------------------------------------------------------------------------------
 
 
+class Error(Exception):
+    """Base class for other exceptions"""
+
+    pass
+
+
+class Inputerror(Exception):
+    """Raised when necessary inputs are missing"""
+
+    def __init__(self, msg=""):
+        super().__init__(msg)
+
+
 class WaveTracker:
     def set_times(self, t):
         self.ttimes = t.copy()
@@ -74,9 +87,9 @@ class WaveTracker:
         A function to perform 2D Fast Marching of wavefronts from sources in a 2D velocity model.
 
         Inputs:
-            v, ndarray(nx,ny)          : coefficients of velocity field in 2D grid
-            recs, ndarray(nr,2)        : receiver locations (x,y)
-            srcs, ndarray(ns,2)        : source locations (x,y)
+            v, ndarray(nx,ny)          : coefficients of velocity field in 2D grid with dimension (nx,ny).
+            recs, ndarray(nr,2)        : receiver locations (x,y). Where nr is the number of receivers.
+            srcs, ndarray(ns,2)        : source locations (x,y). Where ns is the number of receivers.
             paths, bool                : raypath option (True=calculate and return ray paths)
             frechet, bool              : frechet derivative option (True=calculate and return frechet derivative matrix for raypths in each cell)
             times, bool                : travel times derivative option (True=calculate and travel times)
@@ -109,7 +122,30 @@ class WaveTracker:
 
         recs = recs.reshape(-1, 2)  # ensure receiver array is 2D and float32
         srcs = srcs.reshape(-1, 2)  # ensure source array is 2D and float32
-        # check sources and receives inside extent
+
+        # check sources and receivers inside extent
+        if not (
+            all(recs[:, 0] <= extent[1])
+            and all(recs[:, 0] >= extent[0])
+            and all(recs[:, 1] <= extent[3])
+            and all(recs[:, 1] >= extent[2])
+        ):
+            raise Inputerror(
+                msg="Input Error: One or more receiver lies outside of model extent: "
+                + str(extent)
+                + "\nRemedy: adjust receiver locations and run again."
+            )
+        if not (
+            all(srcs[:, 0] <= extent[1])
+            and all(srcs[:, 0] >= extent[0])
+            and all(srcs[:, 1] <= extent[3])
+            and all(srcs[:, 1] >= extent[2])
+        ):
+            raise Inputerror(
+                msg="Input Error: One or more source lies outside of model extent: "
+                + str(extent)
+                + "\nRemedy: adjust source locations and run again."
+            )
 
         ns = len(srcs)
 
