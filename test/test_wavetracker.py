@@ -8,14 +8,14 @@ Created on Fri Jan 10 08:33:05 2025
 import numpy as np
 
 # import matplotlib.pyplot as plt
-import pyfm2dss.wavetracker as wt
-from pyfm2dss import fastmarching as fmm
+import pyfm2d.wavetracker as wt
+from pyfm2d import fastmarching as fmm
 
 # import time
 # from tqdm import tqdm
 import sys
 
-# Simple test routine for wavetracker class and its use of low level class functions in pyfm2dss
+# Simple test routine for wavetracker class and its use of low level class functions in pyfm2d
 
 
 # I DON'T THINK THIS ACTUALLY TESTS THE WAVETRACKER
@@ -25,7 +25,7 @@ import sys
 
 def build_velocitygrid(
     v, extent
-):  # add cushion nodes about velocity model to be compatible with fm2dss.f90 input
+):  # add cushion nodes about velocity model to be compatible with fm2d.f90 input
     #
     # here extent[3],extent[2] is N-S range of grid nodes
     #      extent[0],extent[1] is W-E range of grid nodes

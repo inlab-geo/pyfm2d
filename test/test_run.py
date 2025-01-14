@@ -1,6 +1,6 @@
 import faulthandler
 
-from pyfm2dss import fastmarching as fmm
+from pyfm2d import fastmarching as fmm
 
 faulthandler.enable()
 
