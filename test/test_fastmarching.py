@@ -198,12 +198,42 @@ def test_track():
     #
     # get_raypaths, get_traveltimes, get_traveltime_fields, get_frechet_derivatives
     # only return values after track has been called
+    options = FMMOptions()
+
+    fmm.set_solver_options(
+        np.int32(options.dicex),
+        np.int32(options.dicey),
+        np.int32(options.sourcegridrefine),
+        np.int32(options.sourcedicelevel),
+        np.int32(options.sourcegridsize),
+        np.float32(options.earthradius),
+        np.int32(options.schemeorder),
+        np.float32(options.nbsize),
+        np.int32(options.lttimes),
+        np.int32(options.lfrechet),
+        np.int32(options.tfieldsource + 1),
+        np.int32(options.lpaths),
+    )
+
+    fmm.read_velocity_model(VELMODELFILE)
+    fmm.read_sources(SOURCESFILE)
+    fmm.read_receivers(RECEIVERSFILE)
+    fmm.read_source_receiver_associations(ASSOCIATIONSFILE)
+
+    fmm.allocate_result_arrays()
+
     fmm.track()
 
     ttimes = fmm.get_traveltimes()
+    assert ttimes is not None
 
     paths = fmm.get_raypaths()
+    assert paths is not None
 
-    tfields = fmm.get_traveltime_fields()
+    tfields = fmm.get_traveltime_fields()  ## failing silently here
+    assert tfields is not None
 
     frechet = fmm.get_frechet_derivatives()
+    assert frechet is not None
+
+    fmm.deallocate_result_arrays()
