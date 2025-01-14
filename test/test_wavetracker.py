@@ -10,45 +10,6 @@ from scipy.stats import multivariate_normal
 
 # import matplotlib.pyplot as plt
 import pyfm2d.wavetracker as wt
-from pyfm2d.wavetracker import WaveTracker
-
-
-def build_velocitygrid(
-    v, extent
-):  # add cushion nodes about velocity model to be compatible with fm2d.f90 input
-    #
-    # here extent[3],extent[2] is N-S range of grid nodes
-    #      extent[0],extent[1] is W-E range of grid nodes
-    nx, ny = v.shape
-    dlat, dlong = (extent[3] - extent[2]) / (ny - 1), (extent[1] - extent[0]) / (
-        nx - 1
-    )  # grid node spacing in lat and long
-
-    # gridc.vtx requires a single cushion layer of nodes surrounding the velocty model
-    # build velocity model with cushion velocities
-
-    noncushion = np.zeros(
-        (nx + 2, ny + 2), dtype=bool
-    )  # bool array to identify cushion and non cushion nodes
-    noncushion[1 : nx + 1, 1 : ny + 1] = True
-
-    # mapping from cushion indices to non cushion indices
-    nodemap = np.zeros((nx + 2, ny + 2), dtype=int)
-    nodemap[1 : nx + 1, 1 : ny + 1] = np.array(range((nx * ny))).reshape((nx, ny))
-    nodemap = nodemap[:, ::-1]
-
-    # build velocity nodes
-    # additional boundary layer of velocities are duplicates of the nearest actual velocity value.
-    vc = np.ones((nx + 2, ny + 2))
-    vc[1 : nx + 1, 1 : ny + 1] = v
-    vc[1 : nx + 1, 0] = v[:, 0]  # add velocities in the cushion boundary layer
-    vc[1 : nx + 1, -1] = v[:, -1]  # add velocities in the cushion boundary layer
-    vc[0, 1 : ny + 1] = v[0, :]  # add velocities in the cushion boundary layer
-    vc[-1, 1 : ny + 1] = v[-1, :]  # add velocities in the cushion boundary layer
-    vc[0, 0], vc[0, -1], vc[-1, 0], vc[-1, -1] = v[0, 0], v[0, -1], v[-1, 0], v[-1, -1]
-    vc = vc[:, ::-1]
-
-    return nx, ny, dlat, dlong, vc, noncushion, nodemap.flatten()
 
 
 def get_gauss_model(
@@ -93,7 +54,15 @@ def get_gauss_model(
     )
 
 
-def test_grid_model():
+def get_sources():
+    return np.array([0.1, 0.15])
+
+
+def get_receivers():
+    return np.array([[0.8, 1], [1.0, 0.6]])
+
+
+def create_velocity_grid_model():
     m = np.array(
         [
             [1, 1.1, 1.1, 1.0],
@@ -102,21 +71,26 @@ def test_grid_model():
             [1.1, 1.1, 1.2, 1.2],
         ]
     )
-
-    g = wt.GridModel(m)
+    g = wt.BasisModel(m)
     mp = g.get_velocity()
     mp[1, 1] = 0.7
     mp[2, 2] = 0.9
     mp[2, 1] = 1.3
     g.set_velocity(mp)
-
-
-def test_basis_model():
-    pass
+    return g
 
 
 def test_calc_wavefonts():
-    # setup sources, receivers and velocity model
-    WaveTracker().calc_wavefronts(
-        g.getVelocity(), recs, srcs, verbose=True, frechet=True, paths=True
+    g = create_velocity_grid_model()
+    recs = get_receivers()
+    srcs = get_sources()
+
+    wavetracker = wt.WaveTracker()
+    wavetracker.calc_wavefronts(
+        g.get_velocity(),
+        recs,
+        srcs,
+        verbose=True,
+        frechet=True,
+        paths=True,
     )
