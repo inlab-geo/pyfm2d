@@ -6,21 +6,11 @@ Created on Fri Jan 10 08:33:05 2025
 @author: malcolm
 """
 import numpy as np
+from scipy.stats import multivariate_normal
 
 # import matplotlib.pyplot as plt
 import pyfm2d.wavetracker as wt
-from pyfm2d import fastmarching as fmm
-
-# import time
-# from tqdm import tqdm
-import sys
-
-# Simple test routine for wavetracker class and its use of low level class functions in pyfm2d
-
-
-# I DON'T THINK THIS ACTUALLY TESTS THE WAVETRACKER
-# IT ONLY EVER CALLED THE WT.FMM FUNCTIONS
-# THE sys.exit() AT THE END IS CALLED BEFORE ANY WAVETRACKER FUNCTIONS ARE CALLED
+from pyfm2d.wavetracker import WaveTracker
 
 
 def build_velocitygrid(
@@ -59,32 +49,6 @@ def build_velocitygrid(
     vc = vc[:, ::-1]
 
     return nx, ny, dlat, dlong, vc, noncushion, nodemap.flatten()
-
-
-m = np.array(
-    [
-        [1, 1.1, 1.1, 1.0],
-        [1.0, 1.2, 1.4, 1.3],
-        [1.1, 1.2, 1.3, 1.2],
-        [1.1, 1.1, 1.2, 1.2],
-    ]
-)
-
-g = wt.GridModel(m)
-mp = g.get_velocity()
-mp[1, 1] = 0.7
-mp[2, 2] = 0.9
-mp[2, 1] = 1.3
-g.set_velocity(mp)
-
-# -------------------------------------------------------
-
-srcs = np.array([0.1, 0.15])  # source (x,y)
-
-recs = np.array([[0.8, 1], [1.0, 0.6]])  # receivers [(x1,y1),(x2,y2)]
-
-# -------------------------------------------------------
-from scipy.stats import multivariate_normal
 
 
 def get_gauss_model(
@@ -129,196 +93,30 @@ def get_gauss_model(
     )
 
 
-factor = 1.0
-extent = [0.0, 20.0 * factor, 0.0, 30.0 * factor]
-# m=get_spherical_model(extent,32,48)
-m = get_gauss_model(extent, 32, 48)
-g = wt.BasisModel(m, extent=extent)
-recs = wt.generate_surface_points(
-    10, extent=extent, surface=[False, True, False, False], addCorners=False
-)  # generate receivers around edge
-srcs = wt.generate_surface_points(
-    10, extent=extent, surface=[True, False, False, False], addCorners=False
-)  # generate receivers around edge
+def test_grid_model():
+    m = np.array(
+        [
+            [1, 1.1, 1.1, 1.0],
+            [1.0, 1.2, 1.4, 1.3],
+            [1.1, 1.2, 1.3, 1.2],
+            [1.1, 1.1, 1.2, 1.2],
+        ]
+    )
 
-# -------------------------------------------------------
-v = g.get_velocity()
-
-# run wave front tracker
-myfmm = wt.WaveTracker()
-
-# test options
-
-paths = True
-frechet = True
-times = True
-tfieldsource = -1
-tfieldsource = 0
-sourcegridrefine = True
-sourcedicelevel = 5
-sourcegridsize = 10
-earthradius = 6371.0
-schemeorder = 1
-nbsize = 0.5
-degrees = False
-velocityderiv = False
-# extent=[0.,1.,0.,1.]
-dicex = 8
-dicey = 8
-lpaths, lttimes, lfrechet = 0, 0, 0
-if paths:
-    lpaths = -1
-if times:
-    lttimes = 1
-if frechet:
-    lfrechet = 1
+    g = wt.GridModel(m)
+    mp = g.get_velocity()
+    mp[1, 1] = 0.7
+    mp[2, 2] = 0.9
+    mp[2, 1] = 1.3
+    g.set_velocity(mp)
 
 
-fmm.set_solver_options(
-    np.int32(dicex),
-    np.int32(dicey),
-    np.int32(sourcegridrefine),
-    np.int32(sourcedicelevel),
-    np.int32(sourcegridsize),
-    np.float32(earthradius),
-    np.int32(schemeorder),
-    np.float32(nbsize),
-    np.int32(lttimes),
-    np.int32(lfrechet),
-    np.int32(tfieldsource + 1),
-    np.int32(lpaths),
-)
-
-gdx, gdz, asgr, sgdl, sgs, earth, fom, snb, fsrt, cfd, wttf, wrgf = (
-    fmm.get_solver_options()
-)
-
-print(
-    "Original options: ",
-    dicex,
-    dicey,
-    int(sourcegridrefine),
-    sourcedicelevel,
-    sourcegridsize,
-    earthradius,
-    schemeorder,
-    nbsize,
-    lttimes,
-    lfrechet,
-    tfieldsource + 1,
-    lpaths,
-)
-print(
-    "Recovered options:",
-    gdx,
-    gdz,
-    asgr,
-    sgdl,
-    sgs,
-    earth,
-    fom,
-    snb,
-    fsrt,
-    cfd,
-    wttf,
-    wrgf,
-)
-
-# test velocity model input
-
-nvx, nvy, dlat, dlong, vc, noncushion, nodemap = build_velocitygrid(
-    v, extent
-)  # add cushion layer to velocity model and get parameters
-
-nvx = np.int32(nvx)
-nvy = np.int32(nvy)
-extent = np.array(extent, dtype=np.float32)
-dlat = np.float32(dlat)
-dlong = np.float32(dlong)
-vc = vc.astype(np.float32)
-
-fmm.set_velocity_model(nvy, nvx, extent[3], extent[0], dlat, dlong, vc)
-
-nvxo, nvzo, goxd, gozd, dvxd, dvzd, velv = fmm.get_velocity_model()
-
-print("Original velocity paramaters:  ", nvx, nvy, extent[3], extent[0], dlat, dlong)
-print("Recovered velocity paramaters: ", nvxo, nvzo, goxd, gozd, dvxd, dvzd)
-print("Original velocity field: \n", vc)
-print("Recovered velocity field: \n", velv)
-
-# test source and receiver
-
-recs = recs.reshape(-1, 2)
-srcs = srcs.reshape(-1, 2)
-
-rcy = np.float32(recs[:, 1])
-rcx = np.float32(recs[:, 0])
-
-fmm.set_receivers(rcy, rcx)  # set receivers
-
-scy = np.float32(srcs[:, 1])
-scx = np.float32(srcs[:, 0])
-
-fmm.set_sources(scy, scx)  # set sources
-
-scyo, scxo = fmm.get_sources()
-
-print("Source\n", "Original", srcs, "\n", "recovered", scxo, scyo)
-
-rcyo, rcxo = fmm.get_receivers()
-
-print("Receivers\n", "Original", recs[:, 0], recs[:, 1], "\n", "recovered", rcxo, rcyo)
-
-# test source/receiver associations
-srs = np.ones(
-    (len(recs), len(srcs)), dtype=np.int32
-)  # set up time calculation between all sources and receivers
-
-fmm.set_source_receiver_associations(srs)
-
-srso = fmm.get_source_receiver_associations()
-
-print("Original associations:\n", srs)
-print("Recovered associations:\n", srso)
+def test_basis_model():
+    pass
 
 
-fmm.allocate_result_arrays()  # allocate memory for Fortran arrays
-
-fmm.track()
-# check results
-kms2deg = 180.0 / (earthradius * np.pi)
-
-if times:
-    ttimes = fmm.get_traveltimes()
-    if not degrees:
-        ttimes *= kms2deg  # adjust travel times because inputs are not in degrees
-
-if paths:
-    raypaths = fmm.get_raypaths()
-
-if frechet:
-    frechetvals = (
-        fmm.get_frechet_derivatives()
-    )  # THIS IS PROBABLY LACKS ADJUSTMENT FOR CUSHION NODES see routine read_fmst_frechet in _core.py
-    if not degrees:
-        frechetvals *= kms2deg  # adjust travel times because inputs are not in degrees
-    # if(not velocityderiv):  THIS ONLY WORKS WHEN frechetvals has cushion removed otherwise they are not of teh same shape
-    #    x2 = -(v*v).reshape(-1)
-    #    frechetvals = frechetvals.multiply(x2)
-
-if tfieldsource >= 0:
-    tfieldvals = fmm.get_traveltime_fields()
-    if not degrees:
-        tfieldvals *= kms2deg  # adjust travel times because inputs are not in degrees
-
-fmm.deallocate_result_arrays()
-
-sys.exit()
-
-
-myfmm.calc_wavefronts(
-    g.getVelocity(), recs, srcs, verbose=True, frechet=True, paths=True
-)
-print(" Number of paths calculated = ", len(myfmm.paths))
-print(" Number of travel times calculated = ", len(myfmm.ttimes))
-print(" Shape of frechet matrix = ", myfmm.frechet.shape)
+def test_calc_wavefonts():
+    # setup sources, receivers and velocity model
+    WaveTracker().calc_wavefronts(
+        g.getVelocity(), recs, srcs, verbose=True, frechet=True, paths=True
+    )
