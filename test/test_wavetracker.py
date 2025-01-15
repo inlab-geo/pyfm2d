@@ -10,7 +10,7 @@ import numpy as np
 import pyfm2d.wavetracker as wt
 
 
-PLOT = True
+PLOT = False
 
 
 def get_sources():
@@ -44,9 +44,8 @@ def test_calc_wavefonts():
     recs = get_receivers()
     srcs = get_sources()
 
-    wavetracker = wt.WaveTracker()
     options = wt.WaveTrackerOptions(times=True, paths=True, frechet=True)
-    result = wavetracker.calc_wavefronts(
+    result = wt.calc_wavefronts(
         g.get_velocity(),
         recs,
         srcs,

@@ -105,145 +105,145 @@ class WaveTrackerOptions:
     dicey: int = 8
 
 
-class WaveTracker:
-    def calc_wavefronts(
-        self,
-        v,
-        recs,
-        srcs,
-        extent=[0.0, 1.0, 0.0, 1.0],
-        options: Optional[WaveTrackerOptions] = None,
-    ):
-        """
+def calc_wavefronts(
+    v,
+    recs,
+    srcs,
+    extent=[0.0, 1.0, 0.0, 1.0],
+    options: Optional[WaveTrackerOptions] = None,
+):
+    """
 
-        A function to perform 2D Fast Marching of wavefronts from sources in a 2D velocity model.
+    A function to perform 2D Fast Marching of wavefronts from sources in a 2D velocity model.
 
-        Inputs:
-            v, ndarray(nx,ny)          : coefficients of velocity field in 2D grid with dimension (nx,ny).
-            recs, ndarray(nr,2)        : receiver locations (x,y). Where nr is the number of receivers.
-            srcs, ndarray(ns,2)        : source locations (x,y). Where ns is the number of receivers.
-            extent, list               : 4-tuple of model extent [xmin,xmax,ymin,ymax]. (default=[0.,1.,0.,1.])
-            options, WaveTrackerOptions: configuration options for the wavefront tracker. (default=None)
+    Inputs:
+        v, ndarray(nx,ny)          : coefficients of velocity field in 2D grid with dimension (nx,ny).
+        recs, ndarray(nr,2)        : receiver locations (x,y). Where nr is the number of receivers.
+        srcs, ndarray(ns,2)        : source locations (x,y). Where ns is the number of receivers.
+        extent, list               : 4-tuple of model extent [xmin,xmax,ymin,ymax]. (default=[0.,1.,0.,1.])
+        options, WaveTrackerOptions: configuration options for the wavefront tracker. (default=None)
 
 
-        Returns
-            WaveTracker.ttimes, ndarray(ns*nr)   : first arrival travel times between ns sources and nr receivers.
-            WaveTracker.paths, list(ns*nr)       : list of 2-D arrays (x,y) for all ns*nr raypaths.
-            WaveTracker.ttfield, ndarray(mx,my)  : 2-D array of travel time field for source tfieldsource at resolution mx*my
-                                                   (mx = dicex*(nx-1) + 1, my = dicey*(ny-1) + 1).
-            WaveTracker.frechet, csr_matrix      : 2D array of shape (nrays, nx*ny) in sparse csr format containing derivatives of travel
-                                                   time with respect to input velocity (velocityderiv=True) or slowness (velocityderiv=False) model values.
+    Returns
+        WaveTracker.ttimes, ndarray(ns*nr)   : first arrival travel times between ns sources and nr receivers.
+        WaveTracker.paths, list(ns*nr)       : list of 2-D arrays (x,y) for all ns*nr raypaths.
+        WaveTracker.ttfield, ndarray(mx,my)  : 2-D array of travel time field for source tfieldsource at resolution mx*my
+                                                (mx = dicex*(nx-1) + 1, my = dicey*(ny-1) + 1).
+        WaveTracker.frechet, csr_matrix      : 2D array of shape (nrays, nx*ny) in sparse csr format containing derivatives of travel
+                                                time with respect to input velocity (velocityderiv=True) or slowness (velocityderiv=False) model values.
 
-        Notes:
-            Internally variables are converted to np.float32 to be consistent with Fortran code fm2dss.f90.
+    Notes:
+        Internally variables are converted to np.float32 to be consistent with Fortran code fm2dss.f90.
 
-        """
-        if options is None:
-            options = WaveTrackerOptions()
+    """
+    if options is None:
+        options = WaveTrackerOptions()
 
-        recs = recs.reshape(-1, 2)  # ensure receiver array is 2D and float32
-        srcs = srcs.reshape(-1, 2)  # ensure source array is 2D and float32
+    recs = recs.reshape(-1, 2)  # ensure receiver array is 2D and float32
+    srcs = srcs.reshape(-1, 2)  # ensure source array is 2D and float32
 
-        _check_sources_receivers_inside_extent(srcs, recs, extent)
+    _check_sources_receivers_inside_extent(srcs, recs, extent)
 
-        _check_requested_source_exists(options.ttfield_source, len(srcs))
+    _check_requested_source_exists(options.ttfield_source, len(srcs))
 
-        # fmst expects input spatial co-ordinates in degrees and velocities in kms/s so we adjust (unless degrees=True)
-        kms2deg = 1.0 if options.degrees else 180.0 / (options.earthradius * np.pi)
+    # fmst expects input spatial co-ordinates in degrees and velocities in kms/s so we adjust (unless degrees=True)
+    kms2deg = 1.0 if options.degrees else 180.0 / (options.earthradius * np.pi)
 
-        # Write out ray paths. Only allow all (-1) or none (0)
-        lpaths = -1 if options.paths else 0
+    # Write out ray paths. Only allow all (-1) or none (0)
+    lpaths = -1 if options.paths else 0
 
-        # int to calculate travel times (y=1,n=0)
-        lttimes = 1 if options.times else 0
+    # int to calculate travel times (y=1,n=0)
+    lttimes = 1 if options.times else 0
 
-        # int to calculate Frechet derivatives of travel times w.r.t. slownesses (0=no,1=yes)
-        lfrechet = 1 if options.frechet else 0
+    # int to calculate Frechet derivatives of travel times w.r.t. slownesses (0=no,1=yes)
+    lfrechet = 1 if options.frechet else 0
 
-        # int to calculate travel fields (0=no,1=all)
-        tsource = 1 if options.ttfield_source >= 0 else 0
+    # int to calculate travel fields (0=no,1=all)
+    tsource = 1 if options.ttfield_source >= 0 else 0
 
-        fmm.set_solver_options(
-            options.dicex,
-            options.dicey,
-            options.sourcegridrefine,
-            options.sourcedicelevel,
-            options.sourcegridsize,
-            options.earthradius,
-            options.schemeorder,
-            options.nbsize,
-            lttimes,
-            lfrechet,
-            tsource,
-            lpaths,
-        )
+    fmm.set_solver_options(
+        options.dicex,
+        options.dicey,
+        options.sourcegridrefine,
+        options.sourcedicelevel,
+        options.sourcegridsize,
+        options.earthradius,
+        options.schemeorder,
+        options.nbsize,
+        lttimes,
+        lfrechet,
+        tsource,
+        lpaths,
+    )
 
-        fmm.set_sources(srcs[:, 1], srcs[:, 0])  # ordering inherited from fm2dss.f90
-        fmm.set_receivers(recs[:, 1], recs[:, 0])  # ordering inherited from fm2dss.f90
+    fmm.set_sources(srcs[:, 1], srcs[:, 0])  # ordering inherited from fm2dss.f90
+    fmm.set_receivers(recs[:, 1], recs[:, 0])  # ordering inherited from fm2dss.f90
 
-        nvx, nvy, dlat, dlong, vc, noncushion, nodemap = _build_velocity_grid(v, extent)
-        fmm.set_velocity_model(nvy, nvx, extent[3], extent[0], dlat, dlong, vc)
+    nvx, nvy, dlat, dlong, vc, noncushion, nodemap = _build_velocity_grid(v, extent)
+    fmm.set_velocity_model(nvy, nvx, extent[3], extent[0], dlat, dlong, vc)
 
-        # set up time calculation between all sources and receivers
-        associations = np.ones((recs.shape[0], srcs.shape[0]))
-        fmm.set_source_receiver_associations(associations)
+    # set up time calculation between all sources and receivers
+    associations = np.ones((recs.shape[0], srcs.shape[0]))
+    fmm.set_source_receiver_associations(associations)
 
-        fmm.allocate_result_arrays()  # allocate memory for Fortran arrays
+    fmm.allocate_result_arrays()  # allocate memory for Fortran arrays
 
-        fmm.track()  # run fmst wavefront tracker code
+    fmm.track()  # run fmst wavefront tracker code
 
-        # collect results
-        ttimes = fmm.get_traveltimes().copy() * kms2deg if options.times else None
-        raypaths = fmm.get_raypaths().copy() if options.paths else None
-        frechetvals = (
-            self.get_frechet_derivatives(kms2deg, options.velocityderiv, v, noncushion)
-            if options.frechet
-            else None
-        )
-        tfield = (
-            self.get_tfield(kms2deg, options.ttfield_source)
-            if options.ttfield_source >= 0
-            else None
-        )
+    # collect results
+    ttimes = fmm.get_traveltimes().copy() * kms2deg if options.times else None
+    raypaths = fmm.get_raypaths().copy() if options.paths else None
+    frechetvals = (
+        _get_frechet_derivatives(kms2deg, options.velocityderiv, v, noncushion)
+        if options.frechet
+        else None
+    )
+    tfield = (
+        _get_tfield(kms2deg, options.ttfield_source)
+        if options.ttfield_source >= 0
+        else None
+    )
 
-        #   add required information to class instances
+    #   add required information to class instances
 
-        fmm.deallocate_result_arrays()
+    fmm.deallocate_result_arrays()
 
-        return WaveTrackerResult(ttimes, raypaths, tfield, frechetvals)
+    return WaveTrackerResult(ttimes, raypaths, tfield, frechetvals)
 
-    def get_frechet_derivatives(self, degrees_conversion, velocityderiv, velocity, noncushion):
-        # frechetvals = read_fmst_frechet(wdir+'/'+ffilename,noncushion,nodemap)
-        frechetvals = fmm.get_frechet_derivatives()
-        frechetvals *= degrees_conversion
 
-        # the frechet matrix returned in in csr format and has two layers of cushion nodes surrounding the (nx,ny) grid
-        F = frechetvals.toarray()  # unpack csr format
-        nrays = np.shape(F)[0]  # number of raypaths
-        nx, ny = velocity.shape  # shape of non-cushion velcoity model
-        # remove cushion nodes and reshape to (nx,ny)
-        F = F[:, noncushion.flatten()].reshape((nrays, nx, ny))
-        # reverse y order, because it seems to be returned in reverse order (cf. ttfield array)
-        F = F[:, :, ::-1]
-        # reformat as a sparse CSR matrix
-        frechetvals = csr_matrix(F.reshape((nrays, nx * ny)))
-        if not velocityderiv:
-            # adjust derivatives to be of velocites rather than slownesses (default)
-            x2 = -(velocity * velocity).reshape(-1)
-            frechetvals = frechetvals.multiply(x2)
+def _get_frechet_derivatives(degrees_conversion, velocityderiv, velocity, noncushion):
+    # frechetvals = read_fmst_frechet(wdir+'/'+ffilename,noncushion,nodemap)
+    frechetvals = fmm.get_frechet_derivatives()
+    frechetvals *= degrees_conversion
 
-        return frechetvals.copy()
+    # the frechet matrix returned in in csr format and has two layers of cushion nodes surrounding the (nx,ny) grid
+    F = frechetvals.toarray()  # unpack csr format
+    nrays = np.shape(F)[0]  # number of raypaths
+    nx, ny = velocity.shape  # shape of non-cushion velcoity model
+    # remove cushion nodes and reshape to (nx,ny)
+    F = F[:, noncushion.flatten()].reshape((nrays, nx, ny))
+    # reverse y order, because it seems to be returned in reverse order (cf. ttfield array)
+    F = F[:, :, ::-1]
+    # reformat as a sparse CSR matrix
+    frechetvals = csr_matrix(F.reshape((nrays, nx * ny)))
+    if not velocityderiv:
+        # adjust derivatives to be of velocites rather than slownesses (default)
+        x2 = -(velocity * velocity).reshape(-1)
+        frechetvals = frechetvals.multiply(x2)
 
-    def get_tfield(self, degrees_conversion, source):
-        tfieldvals = fmm.get_traveltime_fields()
-        tfieldvals *= degrees_conversion
+    return frechetvals.copy()
 
-        tfield = tfieldvals[source].copy()
-        tfield = tfield[
-            :, ::-1
-        ]  # adjust y axis of travel time field as it is provided in reverse ordered.
 
-        return tfield
+def _get_tfield(degrees_conversion, source):
+    tfieldvals = fmm.get_traveltime_fields()
+    tfieldvals *= degrees_conversion
+
+    tfield = tfieldvals[source].copy()
+    tfield = tfield[
+        :, ::-1
+    ]  # adjust y axis of travel time field as it is provided in reverse ordered.
+
+    return tfield
 
 
 def _build_velocity_grid(v, extent):
