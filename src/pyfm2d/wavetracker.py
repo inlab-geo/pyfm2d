@@ -36,7 +36,7 @@ class Error(Exception):
     pass
 
 
-class Inputerror(Exception):
+class InputError(Exception):
     """Raised when necessary inputs are missing"""
 
     def __init__(self, msg=""):
@@ -44,22 +44,6 @@ class Inputerror(Exception):
 
 
 class WaveTracker:
-    def set_times(self, t):
-        self.ttimes = t.copy()
-
-    def set_paths(self, p):
-        self.paths = p.copy()
-
-    def set_frechet(self, f):
-        self.frechet = f.copy()
-
-    def set_tfield(self, w, source):
-        self.tfield = w[source].copy()
-        self.tfield = self.tfield[
-            :, ::-1
-        ]  # adjust y axis of travel time field as it is provided in reverse ordered.
-        self.tfieldsource = source
-
     def calc_wavefronts(
         self,
         v,
@@ -130,7 +114,7 @@ class WaveTracker:
             and all(recs[:, 1] <= extent[3])
             and all(recs[:, 1] >= extent[2])
         ):
-            raise Inputerror(
+            raise InputError(
                 msg="Input Error: One or more receiver lies outside of model extent: "
                 + str(extent)
                 + "\nRemedy: adjust receiver locations and run again."
@@ -141,7 +125,7 @@ class WaveTracker:
             and all(srcs[:, 1] <= extent[3])
             and all(srcs[:, 1] >= extent[2])
         ):
-            raise Inputerror(
+            raise InputError(
                 msg="Input Error: One or more source lies outside of model extent: "
                 + str(extent)
                 + "\nRemedy: adjust source locations and run again."
@@ -161,24 +145,19 @@ class WaveTracker:
             )
 
         # fmst expects input spatial co-ordinates in degrees and velocities in kms/s so we adjust (unless degrees=True)
+        kms2deg = 1.0 if degrees else 180.0 / (earthradius * np.pi)
 
-        kms2deg = 180.0 / (earthradius * np.pi)
+        # Write out ray paths. Only allow all (-1) or none (0)
+        lpaths = -1 if paths else 0
 
-        lpaths = 0  # Write out raypaths (<0=all,0=no,>0=source id)
-        if paths:
-            lpaths = -1  # only allow all or none
+        # int to calculate travel times (y=1,n=0)
+        lttimes = 1 if times else 0
 
-        lttimes = 0  # int to calculate travel times (y=1,n=0)
-        if times:
-            lttimes = 1
+        # int to calculate Frechet derivatives of travel times w.r.t. slownesses (0=no,1=yes)
+        lfrechet = 1 if frechet else 0
 
-        lfrechet = 0  # bool to calculate Frechet derivatives of travel times w.r.t. slownesses (0=no,1=yes)
-        if frechet:
-            lfrechet = 1
-
-        tsource = 0
-        if tfieldsource >= 0:
-            tsource = 1  # int to calculate travel fields (0=no,1=all)
+        # int to calculate travel fields (0=no,1=all)
+        tsource = 1 if tfieldsource >= 0 else 0
 
         fmm.set_solver_options(
             np.int32(dicex),  # set solver options
@@ -195,15 +174,45 @@ class WaveTracker:
             np.int32(lpaths),
         )
 
+        self.set_sources(srcs)
+        self.set_receivers(recs)
+        self.set_velocity_model(v, extent=extent)
+        self.set_associations(recs, srcs)
+
+        fmm.allocate_result_arrays()  # allocate memory for Fortran arrays
+
+        fmm.track()  # run fmst wavefront tracker code
+
+        # collect results
+        if times:
+            self.get_travel_times(kms2deg)
+
+        if paths:
+            self.get_raypaths()
+
+        if frechet:
+            self.get_frechet_derivatives(kms2deg, velocityderiv, v)
+
+        if tfieldsource >= 0:
+            self.get_tfield(kms2deg, tfieldsource)
+
+        #   add required information to class instances
+
+        fmm.deallocate_result_arrays()
+
+        return
+
+    def set_sources(self, srcs):
         scx = np.float32(srcs[:, 0])
         scy = np.float32(srcs[:, 1])
+        fmm.set_sources(scy, scx)  # ordering inherited from fm2dss.f90
 
-        fmm.set_sources(scy, scx)  # set sources (ordering inherited from fm2dss.f90)
-
+    def set_receivers(self, recs):
         rcx = np.float32(recs[:, 0])
         rcy = np.float32(recs[:, 1])
-        fmm.set_receivers(rcy, rcx)  # set receivers
+        fmm.set_receivers(rcy, rcx)  # ordering inherited from fm2dss.f90
 
+    def set_velocity_model(self, v, extent=(0, 1, 0, 1)):
         # add cushion layer to velocity model and get parameters
         nvx, nvy, dlat, dlong, vc = self.build_velocity_grid(v, extent)
 
@@ -216,62 +225,51 @@ class WaveTracker:
 
         fmm.set_velocity_model(nvy, nvx, extent[3], extent[0], dlat, dlong, vc)
 
+    def set_associations(self, recs, srcs):
         # set up time calculation between all sources and receivers
         srs = np.ones((len(recs), len(srcs)), dtype=np.int32)
         fmm.set_source_receiver_associations(srs)
 
-        fmm.allocate_result_arrays()  # allocate memory for Fortran arrays
+    def get_travel_times(self, degrees_conversion):
+        ttimes = fmm.get_traveltimes()
+        ttimes *= degrees_conversion
+        self.ttimes = ttimes.copy()
 
-        fmm.track()  # run fmst wavefront tracker code
+    def get_raypaths(self):
+        raypaths = fmm.get_raypaths()
+        self.paths = raypaths.copy()
 
-        # collect results
-        if times:
-            ttimes = fmm.get_traveltimes()
-            if not degrees:
-                # adjust travel times because inputs are not in degrees
-                ttimes *= kms2deg
-            self.set_times(ttimes)
+    def get_frechet_derivatives(self, degrees_conversion, velocityderiv, velocity):
+        # frechetvals = read_fmst_frechet(wdir+'/'+ffilename,noncushion,nodemap)
+        frechetvals = fmm.get_frechet_derivatives()
+        frechetvals *= degrees_conversion
 
-        if paths:
-            raypaths = fmm.get_raypaths()
-            self.set_paths(raypaths)
+        # the frechet matrix returned in in csr format and has two layers of cushion nodes surrounding the (nx,ny) grid
+        F = frechetvals.toarray()  # unpack csr format
+        nrays = np.shape(F)[0]  # number of raypaths
+        nx, ny = velocity.shape  # shape of non-cushion velcoity model
+        # remove cushion nodes and reshape to (nx,ny)
+        F = F[:, self.noncushion.flatten()].reshape((nrays, nx, ny))
+        # reverse y order, because it seems to be returned in reverse order (cf. ttfield array)
+        F = F[:, :, ::-1]
+        # reformat as a sparse CSR matrix
+        frechetvals = csr_matrix(F.reshape((nrays, nx * ny)))
+        if not velocityderiv:
+            # adjust derivatives to be of velocites rather than slownesses (default)
+            x2 = -(velocity * velocity).reshape(-1)
+            frechetvals = frechetvals.multiply(x2)
 
-        if frechet:
-            # frechetvals = read_fmst_frechet(wdir+'/'+ffilename,noncushion,nodemap)
-            frechetvals = fmm.get_frechet_derivatives()
-            if not degrees:
-                # adjust travel times because inputs are not in degrees
-                frechetvals *= kms2deg
+        self.frechet = frechetvals.copy()
 
-            # the frechet matrix returned in in csr format and has two layers of cushion nodes surrounding the (nx,ny) grid
-            F = frechetvals.toarray()  # unpack csr format
-            nrays = np.shape(F)[0]  # number of raypaths
-            nx, ny = v.shape  # shape of non-cushion velcoity model
-            # remove cushion nodes and reshape to (nx,ny)
-            F = F[:, self.noncushion.flatten()].reshape((nrays, nx, ny))
-            # reverse y order, because it seems to be returned in reverse order (cf. ttfield array)
-            F = F[:, :, ::-1]
-            # reformat as a sparse CSR matrix
-            frechetvals = csr_matrix(F.reshape((nrays, nx * ny)))
-            if not velocityderiv:
-                # adjust derivatives to be of velocites rather than slownesses (default)
-                x2 = -(v * v).reshape(-1)
-                frechetvals = frechetvals.multiply(x2)
+    def get_tfield(self, degrees_conversion, source):
+        tfieldvals = fmm.get_traveltime_fields()
+        tfieldvals *= degrees_conversion
 
-            self.set_frechet(frechetvals)
-
-        if tfieldsource >= 0:
-            tfieldvals = fmm.get_traveltime_fields()
-            if not degrees:
-                # adjust travel times because inputs are not in degrees
-                tfieldvals *= kms2deg
-            self.set_tfield(tfieldvals, tfieldsource)
-
-        #   add required information to class instances
-
-        fmm.deallocate_result_arrays()
-
-        return
+        self.tfield = tfieldvals[source].copy()
+        self.tfield = self.tfield[
+            :, ::-1
+        ]  # adjust y axis of travel time field as it is provided in reverse ordered.
+        self.tfieldsource = source
 
     def build_velocity_grid(self, v, extent):
         # add cushion nodes about velocity model to be compatible with fm2dss.f90 input
@@ -279,9 +277,10 @@ class WaveTracker:
         # here extent[3],extent[2] is N-S range of grid nodes
         #      extent[0],extent[1] is W-E range of grid nodes
         nx, ny = v.shape
-        dlat, dlong = (extent[3] - extent[2]) / (ny - 1), (extent[1] - extent[0]) / (
-            nx - 1
-        )  # grid node spacing in lat and long
+
+        # grid node spacing in lat and long
+        dlat = (extent[3] - extent[2]) / (ny - 1)
+        dlong = (extent[1] - extent[0]) / (nx - 1)
 
         # gridc.vtx requires a single cushion layer of nodes surrounding the velocty model
         # build velocity model with cushion velocities
@@ -326,8 +325,6 @@ class GridModel:  # This is for the original regular model grid (without using t
         self.xmin, self.xmax, self.ymin, self.ymax = extent
         self.xx = np.linspace(self.xmin, self.xmax, self.nx + 1)
         self.yy = np.linspace(self.ymin, self.ymax, self.ny + 1)
-        # self.dicex = dicex
-        # self.dicey = dicey
         self.extent = extent
 
     def get_velocity(self):
@@ -389,8 +386,6 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
         if self.basis_type == "2Dpixel":
             self.xx = np.linspace(self.xmin, self.xmax, self.nx + 1)
             self.yy = np.linspace(self.ymin, self.ymax, self.ny + 1)
-            # self.dicex = dicex
-            # self.dicey = dicey
             self.basis = base.PixelBasis2D(self.xx, self.yy)
         elif self.basis_type == "2Dcosine":
             self.basis = base.CosineBasis2D(
