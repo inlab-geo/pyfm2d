@@ -163,12 +163,32 @@ def test_read_sources():
     assert np.array_equal(sources, np.loadtxt(SOURCESFILE, skiprows=1))
 
 
+def test_set_sources():
+    sources = np.array([[0.1, 0.15], [0.2, 0.25]])
+    scx = np.float32(sources[:, 0])
+    scy = np.float32(sources[:, 1])
+    fmm.set_sources(scy, scx)  # note the order of scx and scy
+    _scx, _scz = fmm.get_sources()
+    assert np.allclose(_scx, scy, atol=1e-7)
+    assert np.allclose(_scz, scx, atol=1e-7)
+
+
 def test_read_receivers():
     fmm.read_receivers(RECEIVERSFILE)
     rcx, rcz = fmm.get_receivers()
     receviers = np.array([rcx, rcz]).T
 
     assert np.array_equal(receviers, np.loadtxt(RECEIVERSFILE, skiprows=1))
+
+
+def test_set_receivers():
+    receivers = np.array([[0.8, 1], [1.0, 0.6]])
+    rcx = np.float32(receivers[:, 0])
+    rcy = np.float32(receivers[:, 1])
+    fmm.set_receivers(rcy, rcx)  # note the order of rcx and rcy
+    _rcx, _rcz = fmm.get_receivers()
+    assert np.allclose(_rcx, rcy, atol=1e-7)
+    assert np.allclose(_rcz, rcx, atol=1e-7)
 
 
 def test_read_source_receiver_associations():
