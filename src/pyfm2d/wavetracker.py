@@ -53,28 +53,66 @@ class WaveTrackerResult:
     frechet: Optional[csr_matrix] = None
 
 
+@dataclass
+class WaveTrackerOptions:
+    """
+    WaveTrackerOptions is a configuration class for the calc_wavefronts function.
+
+    Attributes:
+
+        times (bool): Whether to calculate travel times. Default is True.
+
+        paths (bool): Whether to calculate ray paths. Default is False.
+
+        frechet (bool): Whether to compute Frechet derivatives. Default is False.
+
+        ttfield_source (int): Source index for to compute travel time field. If <0 then no fields are computed. Default is -1.
+
+        sourcegridrefine (bool): Apply sourcegrid refinement. Default is True.
+
+        sourcedicelevel (int): Source discretization level. Number of sub-divisions per cell (default=5, i.e. 1 model cell becomes 5x5 sub-cells)
+
+        sourcegridsize (int): Number of model cells to refine about source at sourcedicelevel (default=10, i.e. 10x10 cells are refines about source)
+
+        earthradius (float): radius of Earth in km, used for spherical to Cartesian transform. Default is 6371.0.
+
+        schemeorder (int): switch to use first order (0) or mixed order (1) scheme. Default is 1.
+
+        nbsize (float): Narrow band size (0-1) as fraction of nnx*nnz. Default is 0.5.
+
+        degrees (bool): True if input distances are in degrees. Default is False.
+
+        velocityderiv (bool): Switch to return Frechet derivatives of travel times w.r.t. velocities (True) rather than slownesses (False). Default is False.
+
+        dicex (int): x-subgrid discretization level for B-spline interpolation of input mode. Default is 8.
+
+        dicey (int): y-subgrid discretization level for B-spline interpolation of input model. Default is 8.
+    """
+
+    times: bool = True
+    paths: bool = False
+    frechet: bool = False
+    ttfield_source: int = -1
+    sourcegridrefine: bool = True
+    sourcedicelevel: int = 5
+    sourcegridsize: int = 10
+    earthradius: float = 6371.0
+    schemeorder: int = 1
+    nbsize: float = 0.5
+    degrees: bool = False
+    velocityderiv: bool = False
+    dicex: int = 8
+    dicey: int = 8
+
+
 class WaveTracker:
     def calc_wavefronts(
         self,
         v,
         recs,
         srcs,
-        verbose=False,
-        paths=False,
-        frechet=False,
-        times=True,
-        tfieldsource=-1,
-        sourcegridrefine=True,
-        sourcedicelevel=5,
-        sourcegridsize=10,
-        earthradius=6371.0,
-        schemeorder=1,
-        nbsize=0.5,
-        degrees=False,
-        velocityderiv=False,
         extent=[0.0, 1.0, 0.0, 1.0],
-        dicex=8,
-        dicey=8,
+        options: Optional[WaveTrackerOptions] = None,
     ):
         """
 
@@ -84,21 +122,8 @@ class WaveTracker:
             v, ndarray(nx,ny)          : coefficients of velocity field in 2D grid with dimension (nx,ny).
             recs, ndarray(nr,2)        : receiver locations (x,y). Where nr is the number of receivers.
             srcs, ndarray(ns,2)        : source locations (x,y). Where ns is the number of receivers.
-            paths, bool                : raypath option (True=calculate and return ray paths)
-            frechet, bool              : frechet derivative option (True=calculate and return frechet derivative matrix for raypths in each cell)
-            times, bool                : travel times derivative option (True=calculate and travel times)
-            tfieldsource, int          : source id to calculate travel time field (<0=none,>=0=source id)
-            sourcegridrefine, bool     : Apply sourcegrid refinement (default=True)
-            sourcedicelevel, int       : Source discretization level. Number of sub-divisions per cell (default=5, i.e. 1 model cell becomes 5x5 sub-cells)
-            sourcegridsize, int        : Number of model cells to refine about source at sourcedicelevel (default=10, i.e. 10x10 cells are refines about source)
-            earthradius, float         : radius of Earth in km, used for spherical to Cartesian transform (default=6371.0)
-            schemeorder, int           : switch to use first order (0) or mixed order(1) scheme (default=1,mixed)
-            nbsize,float               : Narrow band size (0-1) as fraction of nnx*nnz (default=0.5)
-            degrees, bool              : True if input distances are in degrees (default=False). Uses earthradius to convert to km.
-            velocityderiv, bool        : Switch to return Frechet derivatives of travel times w.r.t. velocities (True) rather than slownesses (False, default).
             extent, list               : 4-tuple of model extent [xmin,xmax,ymin,ymax]. (default=[0.,1.,0.,1.])
-            dicex, int                 : x-subgrid discretization level for B-spline interpolation of input model (default=8)
-            dicey, int                 : y-subgrid discretization level for B-spline interpolation of input model (default=8)
+            options, WaveTrackerOptions: configuration options for the wavefront tracker. (default=None)
 
 
         Returns
@@ -113,38 +138,40 @@ class WaveTracker:
             Internally variables are converted to np.float32 to be consistent with Fortran code fm2dss.f90.
 
         """
+        if options is None:
+            options = WaveTrackerOptions()
 
         recs = recs.reshape(-1, 2)  # ensure receiver array is 2D and float32
         srcs = srcs.reshape(-1, 2)  # ensure source array is 2D and float32
 
         _check_sources_receivers_inside_extent(srcs, recs, extent)
 
-        _check_requested_source_exists(tfieldsource, len(srcs))
+        _check_requested_source_exists(options.ttfield_source, len(srcs))
 
         # fmst expects input spatial co-ordinates in degrees and velocities in kms/s so we adjust (unless degrees=True)
-        kms2deg = 1.0 if degrees else 180.0 / (earthradius * np.pi)
+        kms2deg = 1.0 if options.degrees else 180.0 / (options.earthradius * np.pi)
 
         # Write out ray paths. Only allow all (-1) or none (0)
-        lpaths = -1 if paths else 0
+        lpaths = -1 if options.paths else 0
 
         # int to calculate travel times (y=1,n=0)
-        lttimes = 1 if times else 0
+        lttimes = 1 if options.times else 0
 
         # int to calculate Frechet derivatives of travel times w.r.t. slownesses (0=no,1=yes)
-        lfrechet = 1 if frechet else 0
+        lfrechet = 1 if options.frechet else 0
 
         # int to calculate travel fields (0=no,1=all)
-        tsource = 1 if tfieldsource >= 0 else 0
+        tsource = 1 if options.ttfield_source >= 0 else 0
 
         fmm.set_solver_options(
-            dicex,
-            dicey,
-            sourcegridrefine,
-            sourcedicelevel,
-            sourcegridsize,
-            earthradius,
-            schemeorder,
-            nbsize,
+            options.dicex,
+            options.dicey,
+            options.sourcegridrefine,
+            options.sourcedicelevel,
+            options.sourcegridsize,
+            options.earthradius,
+            options.schemeorder,
+            options.nbsize,
             lttimes,
             lfrechet,
             tsource,
@@ -166,12 +193,18 @@ class WaveTracker:
         fmm.track()  # run fmst wavefront tracker code
 
         # collect results
-        ttimes = fmm.get_traveltimes().copy() * kms2deg if times else None
-        raypaths = fmm.get_raypaths().copy() if paths else None
+        ttimes = fmm.get_traveltimes().copy() * kms2deg if options.times else None
+        raypaths = fmm.get_raypaths().copy() if options.paths else None
         frechetvals = (
-            self.get_frechet_derivatives(kms2deg, velocityderiv, v) if frechet else None
+            self.get_frechet_derivatives(kms2deg, options.velocityderiv, v)
+            if options.frechet
+            else None
         )
-        tfield = self.get_tfield(kms2deg, tfieldsource) if tfieldsource >= 0 else None
+        tfield = (
+            self.get_tfield(kms2deg, options.ttfield_source)
+            if options.ttfield_source >= 0
+            else None
+        )
 
         #   add required information to class instances
 

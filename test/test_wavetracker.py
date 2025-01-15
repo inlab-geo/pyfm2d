@@ -45,13 +45,12 @@ def test_calc_wavefonts():
     srcs = get_sources()
 
     wavetracker = wt.WaveTracker()
+    options = wt.WaveTrackerOptions(times=True, paths=True, frechet=True)
     result = wavetracker.calc_wavefronts(
         g.get_velocity(),
         recs,
         srcs,
-        verbose=True,
-        frechet=True,
-        paths=True,
+        options=options,
     )
 
     assert result.ttimes is not None
