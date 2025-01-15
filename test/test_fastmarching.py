@@ -23,7 +23,7 @@ class FMMOptions:
     nbsize: float = 0.5
     lttimes: int = 1
     lfrechet: int = 1
-    tfieldsource: int = 1
+    tfieldsource: int = 0
     lpaths: int = -1
 
 
