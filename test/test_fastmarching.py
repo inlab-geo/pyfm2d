@@ -2,6 +2,8 @@ import numpy as np
 import pytest
 from dataclasses import dataclass
 
+import matplotlib.pyplot as plt
+
 from pyfm2d import fastmarching as fmm
 
 FMINFILE = "fm2dss.in"
@@ -31,18 +33,18 @@ def test_set_solver_options():
     options = FMMOptions()
 
     fmm.set_solver_options(
-        np.int32(options.dicex),
-        np.int32(options.dicey),
-        np.int32(options.sourcegridrefine),
-        np.int32(options.sourcedicelevel),
-        np.int32(options.sourcegridsize),
-        np.float32(options.earthradius),
-        np.int32(options.schemeorder),
-        np.float32(options.nbsize),
-        np.int32(options.lttimes),
-        np.int32(options.lfrechet),
-        np.int32(options.tfieldsource + 1),
-        np.int32(options.lpaths),
+        options.dicex,
+        options.dicey,
+        options.sourcegridrefine,
+        options.sourcedicelevel,
+        options.sourcegridsize,
+        options.earthradius,
+        options.schemeorder,
+        options.nbsize,
+        options.lttimes,
+        options.lfrechet,
+        options.tfieldsource + 1,
+        options.lpaths,
     )
 
     gdx, gdz, asgr, sgdl, sgs, earth, fom, snb, fsrt, cfd, wttf, wrgf = (
@@ -136,10 +138,12 @@ def test_read_velocity_model():
 
 
 def test_set_velocity_model():
+    # fmm.set_velocity_model takes the cushionned velocity array
+    # i.e. it expects something of shape (nvy + 2, nvx + 2)
     nvy, nvx = 10, 10
     extent = [1.0, 2.0, 3.0, 4.0]
     dlat, dlong = 0.1, 0.1
-    vc = np.full((nvy * nvx, nvy * nvx), 2000.0)
+    vc = np.full((nvy + 2, nvx + 2), 2000.0)
 
     fmm.set_velocity_model(nvy, nvx, extent[3], extent[0], dlat, dlong, vc)
     nx, nz, goxd, gozd, dvxd, dvzd, velv = fmm.get_velocity_model()
@@ -150,9 +154,9 @@ def test_set_velocity_model():
     assert gozd == pytest.approx(extent[0])
     assert dvxd == pytest.approx(dlong)
     assert dvzd == pytest.approx(dlat)
-    assert np.array_equal(velv, vc.flatten())
-    # Some padding is going on in the Fortran code
-    # vc now has size (nvy + 2) * (nvx + 2)
+
+    assert np.allclose(velv, vc, atol=1e-7)
+    assert velv.shape == (nvy + 2, nvx + 2)
 
 
 def test_read_sources():
@@ -165,8 +169,8 @@ def test_read_sources():
 
 def test_set_sources():
     sources = np.array([[0.1, 0.15], [0.2, 0.25]])
-    scx = np.float32(sources[:, 0])
-    scy = np.float32(sources[:, 1])
+    scx = sources[:, 0]
+    scy = sources[:, 1]
     fmm.set_sources(scy, scx)  # note the order of scx and scy
     _scx, _scz = fmm.get_sources()
     assert np.allclose(_scx, scy, atol=1e-7)
@@ -183,8 +187,8 @@ def test_read_receivers():
 
 def test_set_receivers():
     receivers = np.array([[0.8, 1], [1.0, 0.6]])
-    rcx = np.float32(receivers[:, 0])
-    rcy = np.float32(receivers[:, 1])
+    rcx = receivers[:, 0]
+    rcy = receivers[:, 1]
     fmm.set_receivers(rcy, rcx)  # note the order of rcx and rcy
     _rcx, _rcz = fmm.get_receivers()
     assert np.allclose(_rcx, rcy, atol=1e-7)
