@@ -47,6 +47,21 @@ class InputError(Exception):
 
 @dataclass
 class WaveTrackerResult:
+    """
+    Result class for the calc_wavefronts function.
+
+    Attributes:
+
+        ttimes (np.ndarray): first arrival travel times between ns sources and nr receivers.
+
+        paths (list): list of 2-D arrays (x,y) for ray paths between ns sources and nr receivers.
+
+        ttfield (np.ndarray): 2-D array of travel time field for source tfieldsource at resolution mx*my
+
+        frechet (csr_matrix): 2D array of shape (nrays, nx*ny) in sparse csr format containing derivatives of travel
+
+    """
+
     ttimes: Optional[np.ndarray] = None
     paths: Optional[list] = None
     ttfield: Optional[np.ndarray] = None
@@ -140,12 +155,7 @@ def calc_wavefronts(
 
 
     Returns
-        WaveTracker.ttimes, ndarray(ns*nr)   : first arrival travel times between ns sources and nr receivers.
-        WaveTracker.paths, list(ns*nr)       : list of 2-D arrays (x,y) for all ns*nr raypaths.
-        WaveTracker.ttfield, ndarray(mx,my)  : 2-D array of travel time field for source tfieldsource at resolution mx*my
-                                                (mx = dicex*(nx-1) + 1, my = dicey*(ny-1) + 1).
-        WaveTracker.frechet, csr_matrix      : 2D array of shape (nrays, nx*ny) in sparse csr format containing derivatives of travel
-                                                time with respect to input velocity (velocityderiv=True) or slowness (velocityderiv=False) model values.
+        WaveTrackerResult: a dataclass containing the results of the wavefront tracking.
 
     Notes:
         Internally variables are converted to np.float32 to be consistent with Fortran code fm2dss.f90.
