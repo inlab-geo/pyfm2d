@@ -4,6 +4,8 @@ from PIL import Image
 from scipy.interpolate import RectBivariateSpline
 from scipy.sparse import csr_matrix
 import faulthandler
+from dataclasses import dataclass
+from typing import Optional
 
 from . import fastmarching as fmm
 from . import bases as base
@@ -41,6 +43,14 @@ class InputError(Exception):
 
     def __init__(self, msg=""):
         super().__init__(msg)
+
+
+@dataclass
+class WaveTrackerResult:
+    ttimes: Optional[np.ndarray] = None
+    paths: Optional[list] = None
+    ttfield: Optional[np.ndarray] = None
+    frechet: Optional[csr_matrix] = None
 
 
 class WaveTracker:
@@ -156,32 +166,18 @@ class WaveTracker:
         fmm.track()  # run fmst wavefront tracker code
 
         # collect results
-        if times:
-            self.get_travel_times(kms2deg)
-
-        if paths:
-            self.get_raypaths()
-
-        if frechet:
-            self.get_frechet_derivatives(kms2deg, velocityderiv, v)
-
-        if tfieldsource >= 0:
-            self.get_tfield(kms2deg, tfieldsource)
+        ttimes = fmm.get_traveltimes().copy() * kms2deg if times else None
+        raypaths = fmm.get_raypaths().copy() if paths else None
+        frechetvals = (
+            self.get_frechet_derivatives(kms2deg, velocityderiv, v) if frechet else None
+        )
+        tfield = self.get_tfield(kms2deg, tfieldsource) if tfieldsource >= 0 else None
 
         #   add required information to class instances
 
         fmm.deallocate_result_arrays()
 
-        return
-
-    def get_travel_times(self, degrees_conversion):
-        ttimes = fmm.get_traveltimes()
-        ttimes *= degrees_conversion
-        self.ttimes = ttimes.copy()
-
-    def get_raypaths(self):
-        raypaths = fmm.get_raypaths()
-        self.paths = raypaths.copy()
+        return WaveTrackerResult(ttimes, raypaths, tfield, frechetvals)
 
     def get_frechet_derivatives(self, degrees_conversion, velocityderiv, velocity):
         # frechetvals = read_fmst_frechet(wdir+'/'+ffilename,noncushion,nodemap)
@@ -203,17 +199,18 @@ class WaveTracker:
             x2 = -(velocity * velocity).reshape(-1)
             frechetvals = frechetvals.multiply(x2)
 
-        self.frechet = frechetvals.copy()
+        return frechetvals.copy()
 
     def get_tfield(self, degrees_conversion, source):
         tfieldvals = fmm.get_traveltime_fields()
         tfieldvals *= degrees_conversion
 
-        self.tfield = tfieldvals[source].copy()
-        self.tfield = self.tfield[
+        tfield = tfieldvals[source].copy()
+        tfield = tfield[
             :, ::-1
         ]  # adjust y axis of travel time field as it is provided in reverse ordered.
-        self.tfieldsource = source
+
+        return tfield
 
     def build_velocity_grid(self, v, extent):
         # add cushion nodes about velocity model to be compatible with fm2dss.f90 input

@@ -10,7 +10,7 @@ import numpy as np
 import pyfm2d.wavetracker as wt
 
 
-PLOT = False
+PLOT = True
 
 
 def get_sources():
@@ -45,7 +45,7 @@ def test_calc_wavefonts():
     srcs = get_sources()
 
     wavetracker = wt.WaveTracker()
-    wavetracker.calc_wavefronts(
+    result = wavetracker.calc_wavefronts(
         g.get_velocity(),
         recs,
         srcs,
@@ -54,9 +54,9 @@ def test_calc_wavefonts():
         paths=True,
     )
 
-    assert wavetracker.ttimes is not None
-    assert wavetracker.paths is not None
-    assert wavetracker.frechet is not None
+    assert result.ttimes is not None
+    assert result.paths is not None
+    assert result.frechet is not None
 
     if PLOT:
-        wt.display_model(g.get_velocity(), paths=wavetracker.paths)
+        wt.display_model(g.get_velocity(), paths=result.paths)
