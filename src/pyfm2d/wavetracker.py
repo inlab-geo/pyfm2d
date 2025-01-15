@@ -107,42 +107,9 @@ class WaveTracker:
         recs = recs.reshape(-1, 2)  # ensure receiver array is 2D and float32
         srcs = srcs.reshape(-1, 2)  # ensure source array is 2D and float32
 
-        # check sources and receivers inside extent
-        if not (
-            all(recs[:, 0] <= extent[1])
-            and all(recs[:, 0] >= extent[0])
-            and all(recs[:, 1] <= extent[3])
-            and all(recs[:, 1] >= extent[2])
-        ):
-            raise InputError(
-                msg="Input Error: One or more receiver lies outside of model extent: "
-                + str(extent)
-                + "\nRemedy: adjust receiver locations and run again."
-            )
-        if not (
-            all(srcs[:, 0] <= extent[1])
-            and all(srcs[:, 0] >= extent[0])
-            and all(srcs[:, 1] <= extent[3])
-            and all(srcs[:, 1] >= extent[2])
-        ):
-            raise InputError(
-                msg="Input Error: One or more source lies outside of model extent: "
-                + str(extent)
-                + "\nRemedy: adjust source locations and run again."
-            )
+        _check_sources_receivers_inside_extent(srcs, recs, extent)
 
-        ns = len(srcs)
-
-        if tfieldsource + 1 > ns:
-            # source requested for travel time field does not exist
-            print(
-                "Error: Travel time field corresponds to source:",
-                tfieldsource,
-                "\n",
-                "      but total number of sources is",
-                len(srcs),
-                "\n       No travel time field will be calculated.\n",
-            )
+        _check_requested_source_exists(tfieldsource, len(srcs))
 
         # fmst expects input spatial co-ordinates in degrees and velocities in kms/s so we adjust (unless degrees=True)
         kms2deg = 1.0 if degrees else 180.0 / (earthradius * np.pi)
@@ -315,6 +282,42 @@ class WaveTracker:
         self.nodemap = nodemap.flatten()
 
         return nx, ny, dlat, dlong, vc
+
+
+def _check_sources_receivers_inside_extent(srcs, recs, extent):
+    xmin = extent[0]
+    xmax = extent[1]
+    ymin = extent[2]
+    ymax = extent[3]
+
+    rcx = recs[:, 0]
+    rcy = recs[:, 1]
+    if not np.all((xmin <= rcx) & (rcx <= xmax) & (ymin <= rcy) & (rcy <= ymax)):
+        raise InputError(
+            msg="Input Error: One or more receiver lies outside of model extent: "
+            + str(extent)
+            + "\nRemedy: adjust receiver locations and run again."
+        )
+
+    srcx = srcs[:, 0]
+    srcy = srcs[:, 1]
+    if not np.all((xmin <= srcx) & (srcx <= xmax) & (ymin <= srcy) & (srcy <= ymax)):
+        raise InputError(
+            msg="Input Error: One or more source lies outside of model extent: "
+            + str(extent)
+            + "\nRemedy: adjust source locations and run again."
+        )
+
+
+def _check_requested_source_exists(tfieldsource, ns):
+    if tfieldsource + 1 > ns:
+        # source requested for travel time field does not exist
+        print(
+            f"Error: Travel time field corresponds to source: {tfieldsource}",
+            "\n",
+            f"      but total number of sources is {ns}.",
+            "\n       No travel time field will be calculated.\n",
+        )
 
 
 class GridModel:  # This is for the original regular model grid (without using the basis.py package)
