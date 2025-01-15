@@ -104,6 +104,21 @@ class WaveTrackerOptions:
     dicex: int = 8
     dicey: int = 8
 
+    def __post_init__(self):
+        # mostly convert boolean to int for Fortran compatibility
+
+        # Write out ray paths. Only allow all (-1) or none (0)
+        self.lpaths: int = -1 if self.paths else 0
+
+        # int to calculate travel times (y=1,n=0)
+        self.lttimes: int = 1 if self.times else 0
+
+        # int to calculate Frechet derivatives of travel times w.r.t. slownesses (0=no,1=yes)
+        self.lfrechet: int = 1 if self.frechet else 0
+
+        # int to calculate travel fields (0=no,1=all)
+        self.tsource: int = 1 if self.ttfield_source >= 0 else 0
+
 
 def calc_wavefronts(
     v,
@@ -146,21 +161,6 @@ def calc_wavefronts(
 
     _check_requested_source_exists(options.ttfield_source, len(srcs))
 
-    # fmst expects input spatial co-ordinates in degrees and velocities in kms/s so we adjust (unless degrees=True)
-    kms2deg = 1.0 if options.degrees else 180.0 / (options.earthradius * np.pi)
-
-    # Write out ray paths. Only allow all (-1) or none (0)
-    lpaths = -1 if options.paths else 0
-
-    # int to calculate travel times (y=1,n=0)
-    lttimes = 1 if options.times else 0
-
-    # int to calculate Frechet derivatives of travel times w.r.t. slownesses (0=no,1=yes)
-    lfrechet = 1 if options.frechet else 0
-
-    # int to calculate travel fields (0=no,1=all)
-    tsource = 1 if options.ttfield_source >= 0 else 0
-
     fmm.set_solver_options(
         options.dicex,
         options.dicey,
@@ -170,10 +170,10 @@ def calc_wavefronts(
         options.earthradius,
         options.schemeorder,
         options.nbsize,
-        lttimes,
-        lfrechet,
-        tsource,
-        lpaths,
+        options.lttimes,
+        options.lfrechet,
+        options.tsource,
+        options.lpaths,
     )
 
     fmm.set_sources(srcs[:, 1], srcs[:, 0])  # ordering inherited from fm2dss.f90
@@ -191,34 +191,44 @@ def calc_wavefronts(
     fmm.track()  # run fmst wavefront tracker code
 
     # collect results
+    result = collect_results(options, v, extent)
+
+    fmm.deallocate_result_arrays()
+
+    return result
+
+
+def collect_results(options: WaveTrackerOptions, velocity, extent):
+    # fmst expects input spatial co-ordinates in degrees and velocities in kms/s so we adjust (unless degrees=True)
+    kms2deg = 1.0 if options.degrees else 180.0 / (options.earthradius * np.pi)
+
     ttimes = fmm.get_traveltimes().copy() * kms2deg if options.times else None
     raypaths = fmm.get_raypaths().copy() if options.paths else None
-    frechetvals = (
-        _get_frechet_derivatives(kms2deg, options.velocityderiv, v, noncushion)
-        if options.frechet
-        else None
-    )
+
+    if options.frechet:  # yuck! this is a bit of a hack to get the Frechet derivatives
+        _, _, _, _, _, noncushion, _ = _build_velocity_grid(velocity, extent)
+        frechetvals = _get_frechet_derivatives(
+            kms2deg, options.velocityderiv, velocity, noncushion
+        )
+    else:
+        frechetvals = None
+
     tfield = (
         _get_tfield(kms2deg, options.ttfield_source)
         if options.ttfield_source >= 0
         else None
     )
 
-    #   add required information to class instances
-
-    fmm.deallocate_result_arrays()
-
     return WaveTrackerResult(ttimes, raypaths, tfield, frechetvals)
 
 
 def _get_frechet_derivatives(degrees_conversion, velocityderiv, velocity, noncushion):
-    # frechetvals = read_fmst_frechet(wdir+'/'+ffilename,noncushion,nodemap)
     frechetvals = fmm.get_frechet_derivatives()
     frechetvals *= degrees_conversion
 
     # the frechet matrix returned in in csr format and has two layers of cushion nodes surrounding the (nx,ny) grid
     F = frechetvals.toarray()  # unpack csr format
-    nrays = np.shape(F)[0]  # number of raypaths
+    nrays = F.shape[0]  # number of raypaths
     nx, ny = velocity.shape  # shape of non-cushion velcoity model
     # remove cushion nodes and reshape to (nx,ny)
     F = F[:, noncushion.flatten()].reshape((nrays, nx, ny))
@@ -239,14 +249,13 @@ def _get_tfield(degrees_conversion, source):
     tfieldvals *= degrees_conversion
 
     tfield = tfieldvals[source].copy()
-    tfield = tfield[
-        :, ::-1
-    ]  # adjust y axis of travel time field as it is provided in reverse ordered.
 
+    # flip y axis of travel time field as it is provided in reverse ordered.
+    tfield = tfield[:, ::-1]
     return tfield
 
 
-def _build_velocity_grid(v, extent):
+def _build_velocity_grid(v, extent):  # maybe this could be split up a bit?
     # add cushion nodes about velocity model to be compatible with fm2dss.f90 input
     #
     # here extent[3],extent[2] is N-S range of grid nodes
