@@ -127,24 +127,29 @@ class WaveTracker:
         tsource = 1 if tfieldsource >= 0 else 0
 
         fmm.set_solver_options(
-            np.int32(dicex),  # set solver options
-            np.int32(dicey),
-            np.int32(sourcegridrefine),
-            np.int32(sourcedicelevel),
-            np.int32(sourcegridsize),
-            np.float32(earthradius),
-            np.int32(schemeorder),
-            np.float32(nbsize),
-            np.int32(lttimes),
-            np.int32(lfrechet),
-            np.int32(tsource),
-            np.int32(lpaths),
+            dicex,
+            dicey,
+            sourcegridrefine,
+            sourcedicelevel,
+            sourcegridsize,
+            earthradius,
+            schemeorder,
+            nbsize,
+            lttimes,
+            lfrechet,
+            tsource,
+            lpaths,
         )
 
-        self.set_sources(srcs)
-        self.set_receivers(recs)
-        self.set_velocity_model(v, extent=extent)
-        self.set_associations(recs, srcs)
+        fmm.set_sources(srcs[:, 1], srcs[:, 0])  # ordering inherited from fm2dss.f90
+        fmm.set_receivers(recs[:, 1], recs[:, 0])  # ordering inherited from fm2dss.f90
+
+        nvx, nvy, dlat, dlong, vc = self.build_velocity_grid(v, extent)
+        fmm.set_velocity_model(nvy, nvx, extent[3], extent[0], dlat, dlong, vc)
+
+        # set up time calculation between all sources and receivers
+        associations = np.ones((recs.shape[0], srcs.shape[0]))
+        fmm.set_source_receiver_associations(associations)
 
         fmm.allocate_result_arrays()  # allocate memory for Fortran arrays
 
@@ -168,34 +173,6 @@ class WaveTracker:
         fmm.deallocate_result_arrays()
 
         return
-
-    def set_sources(self, srcs):
-        scx = np.float32(srcs[:, 0])
-        scy = np.float32(srcs[:, 1])
-        fmm.set_sources(scy, scx)  # ordering inherited from fm2dss.f90
-
-    def set_receivers(self, recs):
-        rcx = np.float32(recs[:, 0])
-        rcy = np.float32(recs[:, 1])
-        fmm.set_receivers(rcy, rcx)  # ordering inherited from fm2dss.f90
-
-    def set_velocity_model(self, v, extent=(0, 1, 0, 1)):
-        # add cushion layer to velocity model and get parameters
-        nvx, nvy, dlat, dlong, vc = self.build_velocity_grid(v, extent)
-
-        nvx = np.int32(nvx)
-        nvy = np.int32(nvy)
-        extent = np.array(extent, dtype=np.float32)
-        dlat = np.float32(dlat)
-        dlong = np.float32(dlong)
-        vc = vc.astype(np.float32)
-
-        fmm.set_velocity_model(nvy, nvx, extent[3], extent[0], dlat, dlong, vc)
-
-    def set_associations(self, recs, srcs):
-        # set up time calculation between all sources and receivers
-        srs = np.ones((len(recs), len(srcs)), dtype=np.int32)
-        fmm.set_source_receiver_associations(srs)
 
     def get_travel_times(self, degrees_conversion):
         ttimes = fmm.get_traveltimes()

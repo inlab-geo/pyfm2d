@@ -26,19 +26,24 @@ def read_solver_options(fn_):
 def set_solver_options(
     gdx, gdz, asgr, sgdl, sgs, earth, fom, snb, fsrt, cfd, wttf, wrgf
 ):
-    gdx_ = ctypes.c_int(gdx)
-    gdz_ = ctypes.c_int(gdz)
-    asgr_ = ctypes.c_int(asgr)
-    sgdl_ = ctypes.c_int(sgdl)
-    sgs_ = ctypes.c_int(sgs)
-    earth_ = ctypes.c_float(earth)
-    fom_ = ctypes.c_int(fom)
-    snb_ = ctypes.c_float(snb)
+    # Not sure if the np.int32 and np.float32 are necessary
+    # e.g. ctypes.c_int is an alias for ctypes.c_long anyway on 64-bit systems
+    # so casting to 32-bit first seems unnecessary
+    #
+    # unit test passed on my system without the casting
+    gdx_ = ctypes.c_int(np.int32(gdx))
+    gdz_ = ctypes.c_int(np.int32(gdz))
+    asgr_ = ctypes.c_int(np.int32(asgr))
+    sgdl_ = ctypes.c_int(np.int32(sgdl))
+    sgs_ = ctypes.c_int(np.int32(sgs))
+    earth_ = ctypes.c_float(np.float32(earth))
+    fom_ = ctypes.c_int(np.int32(fom))
+    snb_ = ctypes.c_float(np.float32(snb))
 
-    fsrt_ = ctypes.c_int(fsrt)
-    cfd_ = ctypes.c_int(cfd)
-    wttf_ = ctypes.c_int(wttf)
-    wrgf_ = ctypes.c_int(wrgf)
+    fsrt_ = ctypes.c_int(np.int32(fsrt))
+    cfd_ = ctypes.c_int(np.int32(cfd))
+    wttf_ = ctypes.c_int(np.int32(wttf))
+    wrgf_ = ctypes.c_int(np.int32(wrgf))
 
     libfm2d.set_solver_options(
         ctypes.byref(gdx_),
@@ -109,8 +114,14 @@ def read_sources(fn_):
 
 
 def set_sources(scx_, scz_):
-    nsrc_ = ctypes.c_int(len(scx_))
-    # print(scx_,scz_)
+    # testing showed that dtype must be np.float32
+    # not sure why that's the case here but not for the options
+    # must be something to do with the memory allocation in the
+    # Fortran code
+    scx_ = np.asfortranarray(scx_, dtype=np.float32)
+    scz_ = np.asfortranarray(scz_, dtype=np.float32)
+    nsrc_ = ctypes.c_int(scx_.shape[0])
+
     libfm2d.set_sources(
         scx_.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
         scz_.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
@@ -140,7 +151,10 @@ def read_receivers(fn_):
 
 
 def set_receivers(rcx_, rcz_):
-    nrc_ = ctypes.c_int(len(rcx_))
+    rcx_ = np.asfortranarray(rcx_, dtype=np.float32)
+    rcz_ = np.asfortranarray(rcz_, dtype=np.float32)
+    nrc_ = ctypes.c_int(rcx_.shape[0])
+
     libfm2d.set_receivers(
         rcx_.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
         rcz_.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
@@ -208,12 +222,12 @@ def read_velocity_model(fn_):
 
 
 def set_velocity_model(nvx, nvz, goxd, gozd, dvxd, dvzd, velv):
-    nvx_ = ctypes.c_int(nvx)
-    nvz_ = ctypes.c_int(nvz)
-    goxd_ = ctypes.c_float(goxd)
-    gozd_ = ctypes.c_float(gozd)
-    dvxd_ = ctypes.c_float(dvxd)
-    dvzd_ = ctypes.c_float(dvzd)
+    nvx_ = ctypes.c_int(np.int32(nvx))
+    nvz_ = ctypes.c_int(np.int32(nvz))
+    goxd_ = ctypes.c_float(np.float32(goxd))
+    gozd_ = ctypes.c_float(np.float32(gozd))
+    dvxd_ = ctypes.c_float(np.float32(dvxd))
+    dvzd_ = ctypes.c_float(np.float32(dvzd))
     velv_ = np.asfortranarray(velv, dtype=np.float32)
 
     libfm2d.set_velocity_model(
