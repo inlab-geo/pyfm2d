@@ -181,7 +181,7 @@ class WaveTracker:
         fmm.set_sources(srcs[:, 1], srcs[:, 0])  # ordering inherited from fm2dss.f90
         fmm.set_receivers(recs[:, 1], recs[:, 0])  # ordering inherited from fm2dss.f90
 
-        nvx, nvy, dlat, dlong, vc = self.build_velocity_grid(v, extent)
+        nvx, nvy, dlat, dlong, vc, noncushion, nodemap = _build_velocity_grid(v, extent)
         fmm.set_velocity_model(nvy, nvx, extent[3], extent[0], dlat, dlong, vc)
 
         # set up time calculation between all sources and receivers
@@ -196,7 +196,7 @@ class WaveTracker:
         ttimes = fmm.get_traveltimes().copy() * kms2deg if options.times else None
         raypaths = fmm.get_raypaths().copy() if options.paths else None
         frechetvals = (
-            self.get_frechet_derivatives(kms2deg, options.velocityderiv, v)
+            self.get_frechet_derivatives(kms2deg, options.velocityderiv, v, noncushion)
             if options.frechet
             else None
         )
@@ -212,7 +212,7 @@ class WaveTracker:
 
         return WaveTrackerResult(ttimes, raypaths, tfield, frechetvals)
 
-    def get_frechet_derivatives(self, degrees_conversion, velocityderiv, velocity):
+    def get_frechet_derivatives(self, degrees_conversion, velocityderiv, velocity, noncushion):
         # frechetvals = read_fmst_frechet(wdir+'/'+ffilename,noncushion,nodemap)
         frechetvals = fmm.get_frechet_derivatives()
         frechetvals *= degrees_conversion
@@ -222,7 +222,7 @@ class WaveTracker:
         nrays = np.shape(F)[0]  # number of raypaths
         nx, ny = velocity.shape  # shape of non-cushion velcoity model
         # remove cushion nodes and reshape to (nx,ny)
-        F = F[:, self.noncushion.flatten()].reshape((nrays, nx, ny))
+        F = F[:, noncushion.flatten()].reshape((nrays, nx, ny))
         # reverse y order, because it seems to be returned in reverse order (cf. ttfield array)
         F = F[:, :, ::-1]
         # reformat as a sparse CSR matrix
@@ -245,50 +245,48 @@ class WaveTracker:
 
         return tfield
 
-    def build_velocity_grid(self, v, extent):
-        # add cushion nodes about velocity model to be compatible with fm2dss.f90 input
-        #
-        # here extent[3],extent[2] is N-S range of grid nodes
-        #      extent[0],extent[1] is W-E range of grid nodes
-        nx, ny = v.shape
 
-        # grid node spacing in lat and long
-        dlat = (extent[3] - extent[2]) / (ny - 1)
-        dlong = (extent[1] - extent[0]) / (nx - 1)
+def _build_velocity_grid(v, extent):
+    # add cushion nodes about velocity model to be compatible with fm2dss.f90 input
+    #
+    # here extent[3],extent[2] is N-S range of grid nodes
+    #      extent[0],extent[1] is W-E range of grid nodes
+    nx, ny = v.shape
 
-        # gridc.vtx requires a single cushion layer of nodes surrounding the velocty model
-        # build velocity model with cushion velocities
+    # grid node spacing in lat and long
+    dlat = (extent[3] - extent[2]) / (ny - 1)
+    dlong = (extent[1] - extent[0]) / (nx - 1)
 
-        noncushion = np.zeros(
-            (nx + 2, ny + 2), dtype=bool
-        )  # bool array to identify cushion and non cushion nodes
-        noncushion[1 : nx + 1, 1 : ny + 1] = True
+    # gridc.vtx requires a single cushion layer of nodes surrounding the velocty model
+    # build velocity model with cushion velocities
 
-        # mapping from cushion indices to non cushion indices
-        nodemap = np.zeros((nx + 2, ny + 2), dtype=int)
-        nodemap[1 : nx + 1, 1 : ny + 1] = np.array(range((nx * ny))).reshape((nx, ny))
-        nodemap = nodemap[:, ::-1]
+    noncushion = np.zeros(
+        (nx + 2, ny + 2), dtype=bool
+    )  # bool array to identify cushion and non cushion nodes
+    noncushion[1 : nx + 1, 1 : ny + 1] = True
 
-        # build velocity nodes
-        # additional boundary layer of velocities are duplicates of the nearest actual velocity value.
-        vc = np.ones((nx + 2, ny + 2))
-        vc[1 : nx + 1, 1 : ny + 1] = v
-        vc[1 : nx + 1, 0] = v[:, 0]  # add velocities in the cushion boundary layer
-        vc[1 : nx + 1, -1] = v[:, -1]  # add velocities in the cushion boundary layer
-        vc[0, 1 : ny + 1] = v[0, :]  # add velocities in the cushion boundary layer
-        vc[-1, 1 : ny + 1] = v[-1, :]  # add velocities in the cushion boundary layer
-        vc[0, 0], vc[0, -1], vc[-1, 0], vc[-1, -1] = (
-            v[0, 0],
-            v[0, -1],
-            v[-1, 0],
-            v[-1, -1],
-        )
-        vc = vc[:, ::-1]
+    # mapping from cushion indices to non cushion indices
+    nodemap = np.zeros((nx + 2, ny + 2), dtype=int)
+    nodemap[1 : nx + 1, 1 : ny + 1] = np.array(range((nx * ny))).reshape((nx, ny))
+    nodemap = nodemap[:, ::-1]
 
-        self.noncushion = noncushion
-        self.nodemap = nodemap.flatten()
+    # build velocity nodes
+    # additional boundary layer of velocities are duplicates of the nearest actual velocity value.
+    vc = np.ones((nx + 2, ny + 2))
+    vc[1 : nx + 1, 1 : ny + 1] = v
+    vc[1 : nx + 1, 0] = v[:, 0]  # add velocities in the cushion boundary layer
+    vc[1 : nx + 1, -1] = v[:, -1]  # add velocities in the cushion boundary layer
+    vc[0, 1 : ny + 1] = v[0, :]  # add velocities in the cushion boundary layer
+    vc[-1, 1 : ny + 1] = v[-1, :]  # add velocities in the cushion boundary layer
+    vc[0, 0], vc[0, -1], vc[-1, 0], vc[-1, -1] = (
+        v[0, 0],
+        v[0, -1],
+        v[-1, 0],
+        v[-1, -1],
+    )
+    vc = vc[:, ::-1]
 
-        return nx, ny, dlat, dlong, vc
+    return nx, ny, dlat, dlong, vc, noncushion, nodemap
 
 
 def _check_sources_receivers_inside_extent(srcs, recs, extent):
