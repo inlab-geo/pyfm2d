@@ -142,6 +142,8 @@ def calc_wavefronts(
     extent=[0.0, 1.0, 0.0, 1.0],
     options: Optional[WaveTrackerOptions] = None,
 ):
+    # here extent[3],extent[2] is N-S range of grid nodes
+    #      extent[0],extent[1] is W-E range of grid nodes
     """
 
     A function to perform 2D Fast Marching of wavefronts from sources in a 2D velocity model.
@@ -189,7 +191,13 @@ def calc_wavefronts(
     fmm.set_sources(srcs[:, 1], srcs[:, 0])  # ordering inherited from fm2dss.f90
     fmm.set_receivers(recs[:, 1], recs[:, 0])  # ordering inherited from fm2dss.f90
 
-    nvx, nvy, dlat, dlong, vc, noncushion, nodemap = _build_velocity_grid(v, extent)
+    nvx, nvy = v.shape
+    # grid node spacing in lat and long
+    dlat = (extent[3] - extent[2]) / (nvy - 1)
+    dlong = (extent[1] - extent[0]) / (nvx - 1)
+
+    vc = _build_velocity_grid(v)
+
     fmm.set_velocity_model(nvy, nvx, extent[3], extent[0], dlat, dlong, vc)
 
     # set up time calculation between all sources and receivers
@@ -201,38 +209,38 @@ def calc_wavefronts(
     fmm.track()  # run fmst wavefront tracker code
 
     # collect results
-    result = collect_results(options, v, extent)
+    result = collect_results(options, v)
 
     fmm.deallocate_result_arrays()
 
     return result
 
 
-def collect_results(options: WaveTrackerOptions, velocity, extent):
+def collect_results(options: WaveTrackerOptions, velocity):
     # fmst expects input spatial co-ordinates in degrees and velocities in kms/s so we adjust (unless degrees=True)
     kms2deg = 1.0 if options.degrees else 180.0 / (options.earthradius * np.pi)
 
-    ttimes = fmm.get_traveltimes().copy() * kms2deg if options.times else None
-    raypaths = fmm.get_raypaths().copy() if options.paths else None
+    ttimes = None
+    raypaths = None
+    frechetvals = None
+    tfield = None
 
-    if options.frechet:  # yuck! this is a bit of a hack to get the Frechet derivatives
-        _, _, _, _, _, noncushion, _ = _build_velocity_grid(velocity, extent)
-        frechetvals = _get_frechet_derivatives(
-            kms2deg, options.velocityderiv, velocity, noncushion
-        )
-    else:
-        frechetvals = None
+    if options.times:
+        ttimes = fmm.get_traveltimes().copy() * kms2deg
 
-    tfield = (
-        _get_tfield(kms2deg, options.ttfield_source)
-        if options.ttfield_source >= 0
-        else None
-    )
+    if options.paths:
+        raypaths = fmm.get_raypaths().copy()
+
+    if options.frechet:
+        frechetvals = _get_frechet_derivatives(kms2deg, options.velocityderiv, velocity)
+
+    if options.ttfield_source >= 0:
+        tfield = _get_tfield(kms2deg, options.ttfield_source)
 
     return WaveTrackerResult(ttimes, raypaths, tfield, frechetvals)
 
 
-def _get_frechet_derivatives(degrees_conversion, velocityderiv, velocity, noncushion):
+def _get_frechet_derivatives(degrees_conversion, velocityderiv, velocity):
     frechetvals = fmm.get_frechet_derivatives()
     frechetvals *= degrees_conversion
 
@@ -240,12 +248,17 @@ def _get_frechet_derivatives(degrees_conversion, velocityderiv, velocity, noncus
     F = frechetvals.toarray()  # unpack csr format
     nrays = F.shape[0]  # number of raypaths
     nx, ny = velocity.shape  # shape of non-cushion velcoity model
+
     # remove cushion nodes and reshape to (nx,ny)
+    noncushion = _build_grid_noncushion_map(nx, ny)
     F = F[:, noncushion.flatten()].reshape((nrays, nx, ny))
+
     # reverse y order, because it seems to be returned in reverse order (cf. ttfield array)
     F = F[:, :, ::-1]
+
     # reformat as a sparse CSR matrix
     frechetvals = csr_matrix(F.reshape((nrays, nx * ny)))
+
     if not velocityderiv:
         # adjust derivatives to be of velocites rather than slownesses (default)
         x2 = -(velocity * velocity).reshape(-1)
@@ -265,31 +278,12 @@ def _get_tfield(degrees_conversion, source):
     return tfield
 
 
-def _build_velocity_grid(v, extent):  # maybe this could be split up a bit?
+def _build_velocity_grid(v):  # maybe this could be split up a bit?
     # add cushion nodes about velocity model to be compatible with fm2dss.f90 input
-    #
-    # here extent[3],extent[2] is N-S range of grid nodes
-    #      extent[0],extent[1] is W-E range of grid nodes
+
     nx, ny = v.shape
 
-    # grid node spacing in lat and long
-    dlat = (extent[3] - extent[2]) / (ny - 1)
-    dlong = (extent[1] - extent[0]) / (nx - 1)
-
     # gridc.vtx requires a single cushion layer of nodes surrounding the velocty model
-    # build velocity model with cushion velocities
-
-    noncushion = np.zeros(
-        (nx + 2, ny + 2), dtype=bool
-    )  # bool array to identify cushion and non cushion nodes
-    noncushion[1 : nx + 1, 1 : ny + 1] = True
-
-    # mapping from cushion indices to non cushion indices
-    nodemap = np.zeros((nx + 2, ny + 2), dtype=int)
-    nodemap[1 : nx + 1, 1 : ny + 1] = np.array(range((nx * ny))).reshape((nx, ny))
-    nodemap = nodemap[:, ::-1]
-
-    # build velocity nodes
     # additional boundary layer of velocities are duplicates of the nearest actual velocity value.
     vc = np.ones((nx + 2, ny + 2))
     vc[1 : nx + 1, 1 : ny + 1] = v
@@ -305,7 +299,22 @@ def _build_velocity_grid(v, extent):  # maybe this could be split up a bit?
     )
     vc = vc[:, ::-1]
 
-    return nx, ny, dlat, dlong, vc, noncushion, nodemap
+    return vc
+
+
+def _build_grid_noncushion_map(nx, ny):
+    # bool array to identify cushion and non cushion nodes
+    noncushion = np.zeros((nx + 2, ny + 2), dtype=bool)
+    noncushion[1 : nx + 1, 1 : ny + 1] = True
+    return noncushion
+
+
+def _build_node_map(nx, ny):
+    # mapping from cushion indices to non cushion indices
+    nodemap = np.zeros((nx + 2, ny + 2), dtype=int)
+    nodemap[1 : nx + 1, 1 : ny + 1] = np.array(range((nx * ny))).reshape((nx, ny))
+    nodemap = nodemap[:, ::-1]
+    return nodemap
 
 
 def _check_sources_receivers_inside_extent(srcs, recs, extent):

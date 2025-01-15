@@ -7,10 +7,9 @@ Created on Fri Jan 10 08:33:05 2025
 """
 import numpy as np
 
-import pyfm2d.wavetracker as wt
+from pyfm2d import calc_wavefronts, WaveTrackerOptions, display_model, BasisModel
 
-
-PLOT = False
+PLOT = True
 
 
 def get_sources():
@@ -30,7 +29,7 @@ def create_velocity_grid_model():
             [1.1, 1.1, 1.2, 1.2],
         ]
     )
-    g = wt.BasisModel(m)
+    g = BasisModel(m)
     mp = g.get_velocity()
     mp[1, 1] = 0.7
     mp[2, 2] = 0.9
@@ -44,8 +43,8 @@ def test_calc_wavefonts():
     recs = get_receivers()
     srcs = get_sources()
 
-    options = wt.WaveTrackerOptions(times=True, paths=True, frechet=True)
-    result = wt.calc_wavefronts(
+    options = WaveTrackerOptions(times=True, paths=True, frechet=True)
+    result = calc_wavefronts(
         g.get_velocity(),
         recs,
         srcs,
@@ -57,4 +56,4 @@ def test_calc_wavefonts():
     assert result.frechet is not None
 
     if PLOT:
-        wt.display_model(g.get_velocity(), paths=result.paths)
+        display_model(g.get_velocity(), paths=result.paths)
