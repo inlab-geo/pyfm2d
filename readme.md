@@ -22,7 +22,7 @@ This is a package of several elements.
 
 `WaveTrackerOptions` - A dataclass to allow adjustment of all parameters which control behaviour of the function `calc_wavefronts()`
 
-`calc_wavefronts()` - the main function which calculates first arrival travel time calculations between sources and receivers in a 2D model. Options for behavior are supplied by the options variable which is an instance of the class `WaveTrackerOptions`
+`calc_wavefronts()` - the main function which calculates first arrival travel times between sources and receivers in a 2D model. Options for behavior are supplied by the options variable which is an instance of the class `WaveTrackerOptions`
 
 `display_model()` - a function to plot velocity models together with calculated rays and wavefronts. 
 
