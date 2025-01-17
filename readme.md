@@ -18,7 +18,7 @@ pip install git+https://github.com/inlab-geo/pyfm2d
 
 This is a package of several elements.
 
-`basisModel` - A class which contains functions to define, retrieve and manipulate 2D seismic velocity, or slowness, models expressed in a choice of model bases.
+`BasisModel` - A class which contains functions to define, retrieve and manipulate 2D seismic velocity, or slowness, models expressed in a choice of model bases.
 
 `WaveTrackerOptions` - A dataclass to allow adjustment of all parameters which control behaviour of the function `calc_wavefronts()`
 
@@ -54,7 +54,7 @@ m = np.array([[1,1.1,1.1,1.],
               [1.,1.2,1.4,1.3],
               [1.1,1.2,1.3,1.2],
               [1.1,1.1,1.2,1.2]])
-g = wt.basisModel(m)
+g = wt.BasisModel(m)
 srcs = np.array([0.1,0.15])
 recs = np.array([[0.8,1],[1.,0.6]])
 
