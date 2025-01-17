@@ -7,6 +7,20 @@ name = "pyfm2d"
 version = "0.1.0"
 requires-python = ">=3.9"
 dependencies = [
-    "numpy",
-    "matplotlib"
+    "cartopy>=0.23.0",
+    "matplotlib>=3.9.4",
+    "numpy>=2.0.2",
+    "pyrr>=0.10.3",
+    "scipy>=1.13.1",
+    "tqdm>=4.67.1",
+]
+
+[project.optional-dependencies]
+notebooks = [
+    "jupyterlab>=4.3.4",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4",
 ]
