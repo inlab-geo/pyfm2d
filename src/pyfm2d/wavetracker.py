@@ -10,6 +10,9 @@ from typing import Optional
 from . import fastmarching as fmm
 from . import bases as base
 
+import concurrent.futures
+
+
 faulthandler.enable()
 
 # --------------------------------------------------------------------------------------------
@@ -214,6 +217,34 @@ def calc_wavefronts(
     fmm.deallocate_result_arrays()
 
     return result
+
+
+
+
+
+def calc_wavefronts_multithreading(
+    v,
+    recs,
+    srcs,
+    nthreads=2,
+    extent=[0.0, 1.0, 0.0, 1.0],
+    options: Optional[WaveTrackerOptions] = None,
+):
+
+       
+    result_list=[]
+    
+    futures=[]
+    # https://docs.python.org/3/library/concurrent.futures.html
+    with concurrent.futures.ProcessPoolExecutor(max_workers=nthreads) as executor:
+        for i in range(np.shape(srcs)[0]):
+            futures.append(executor.submit(calc_wavefronts(v,recs,srcs[i,:],extent,options)))
+        for future in concurrent.futures.as_completed(futures):
+            
+            result_list.append(future.result)
+            print(future)
+
+    return result_list
 
 
 def collect_results(options: WaveTrackerOptions, velocity):
