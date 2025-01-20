@@ -73,7 +73,7 @@ def test__calc_wavefonts_process():
 def test_calc_wavefonts_multithreading():
     g = create_velocity_grid_model()
     recs = get_receivers()
-    srcs = np.concatenate([get_sources()] * 4)
+    srcs = np.concatenate([get_sources() for _ in range(4)])
 
     options = WaveTrackerOptions(times=True, paths=True, frechet=True)
     result = _calc_wavefronts_multithreading(
@@ -91,3 +91,6 @@ def test_calc_wavefonts_multithreading():
     # Check the travel times
     expected_tt = calculate_expected_tt(srcs, recs)
     assert np.allclose(result.ttimes, expected_tt, atol=1e-2)
+
+    if PLOT:
+        display_model(g.get_velocity(), paths=result.paths)
