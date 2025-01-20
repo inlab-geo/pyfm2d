@@ -8,12 +8,13 @@ Created on Fri Jan 10 08:33:05 2025
 import numpy as np
 
 from pyfm2d import calc_wavefronts, WaveTrackerOptions, display_model, BasisModel
+from pyfm2d.wavetracker import calc_wavefronts_multithreading
 
 PLOT = True
 
 
 def get_sources():
-    return np.array([0.1, 0.15])
+    return np.array([[0.1, 0.15]])
 
 
 def get_receivers():
@@ -57,3 +58,22 @@ def test_calc_wavefonts():
 
     if PLOT:
         display_model(g.get_velocity(), paths=result.paths)
+
+
+def test_calc_wavefonts_multithreading():
+    g = create_velocity_grid_model()
+    recs = get_receivers()
+    srcs = np.concatenate([get_sources()] * 4)
+
+    options = WaveTrackerOptions(times=True, paths=True, frechet=True)
+    result = calc_wavefronts_multithreading(
+        g.get_velocity(),
+        recs,
+        srcs,
+        options=options,
+        nthreads=4,
+    )
+
+    assert result.ttimes is not None
+    assert result.paths is not None
+    assert result.frechet is not None
