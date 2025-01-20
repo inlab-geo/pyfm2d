@@ -12,8 +12,6 @@ from . import bases as base
 
 import concurrent.futures
 
-import joblib
-
 faulthandler.enable()
 
 # --------------------------------------------------------------------------------------------
@@ -181,9 +179,8 @@ def calc_wavefronts(
     srcs,
     extent=[0.0, 1.0, 0.0, 1.0],
     options: Optional[WaveTrackerOptions] = None,
+    nthreads: int = 1,
 ):
-    # here extent[3],extent[2] is N-S range of grid nodes
-    #      extent[0],extent[1] is W-E range of grid nodes
     """
 
     A function to perform 2D Fast Marching of wavefronts from sources in a 2D velocity model.
@@ -194,6 +191,7 @@ def calc_wavefronts(
         srcs, ndarray(ns,2)        : source locations (x,y). Where ns is the number of receivers.
         extent, list               : 4-tuple of model extent [xmin,xmax,ymin,ymax]. (default=[0.,1.,0.,1.])
         options, WaveTrackerOptions: configuration options for the wavefront tracker. (default=None)
+        nthreads, int              : number of threads to use for multithreading. Multithreading is performed over sources (default=1)
 
 
     Returns
@@ -203,6 +201,22 @@ def calc_wavefronts(
         Internally variables are converted to np.float32 to be consistent with Fortran code fm2dss.f90.
 
     """
+
+    if nthreads <= 1:
+        return _calc_wavefronts_process(v, recs, srcs, extent, options)
+    else:
+        return _calc_wavefronts_multithreading(v, recs, srcs, nthreads, extent, options)
+
+
+def _calc_wavefronts_process(
+    v,
+    recs,
+    srcs,
+    extent=[0.0, 1.0, 0.0, 1.0],
+    options: Optional[WaveTrackerOptions] = None,
+):
+    # here extent[3],extent[2] is N-S range of grid nodes
+    #      extent[0],extent[1] is W-E range of grid nodes
     if options is None:
         options = WaveTrackerOptions()
 
@@ -256,7 +270,7 @@ def calc_wavefronts(
     return result
 
 
-def calc_wavefronts_multithreading(
+def _calc_wavefronts_multithreading(
     v,
     recs,
     srcs,
@@ -275,11 +289,12 @@ def calc_wavefronts_multithreading(
     with concurrent.futures.ProcessPoolExecutor(max_workers=nthreads) as executor:
         for i in range(np.shape(srcs)[0]):
             futures.append(
-                executor.submit(calc_wavefronts, v, recs, srcs[i, :], extent, options)
+                executor.submit(
+                    _calc_wavefronts_process, v, recs, srcs[i, :], extent, options
+                )
             )
         for future in concurrent.futures.as_completed(futures):
             result_list.append(future.result())
-            print(future)
 
     return sum(result_list[1:], start=result_list[0])
 

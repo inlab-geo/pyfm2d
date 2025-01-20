@@ -1,1 +1,1 @@
-from .wavetracker import calc_wavefronts, calc_wavefronts_multithreading, WaveTrackerOptions, display_model, BasisModel
+from .wavetracker import calc_wavefronts, WaveTrackerOptions, display_model, BasisModel

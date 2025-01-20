@@ -7,8 +7,8 @@ Created on Fri Jan 10 08:33:05 2025
 """
 import numpy as np
 
-from pyfm2d import calc_wavefronts, WaveTrackerOptions, display_model, BasisModel
-from pyfm2d.wavetracker import calc_wavefronts_multithreading
+from pyfm2d import WaveTrackerOptions, display_model, BasisModel
+from pyfm2d.wavetracker import _calc_wavefronts_process, _calc_wavefronts_multithreading
 
 PLOT = True
 
@@ -39,13 +39,13 @@ def create_velocity_grid_model():
     return g
 
 
-def test_calc_wavefonts():
+def test__calc_wavefonts_process():
     g = create_velocity_grid_model()
     recs = get_receivers()
     srcs = get_sources()
 
     options = WaveTrackerOptions(times=True, paths=True, frechet=True)
-    result = calc_wavefronts(
+    result = _calc_wavefronts_process(
         g.get_velocity(),
         recs,
         srcs,
@@ -66,7 +66,7 @@ def test_calc_wavefonts_multithreading():
     srcs = np.concatenate([get_sources()] * 4)
 
     options = WaveTrackerOptions(times=True, paths=True, frechet=True)
-    result = calc_wavefronts_multithreading(
+    result = _calc_wavefronts_multithreading(
         g.get_velocity(),
         recs,
         srcs,
