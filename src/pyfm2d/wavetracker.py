@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 from scipy.interpolate import RectBivariateSpline
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, hstack
 import faulthandler
 from dataclasses import dataclass
 from typing import Optional
@@ -69,6 +69,42 @@ class WaveTrackerResult:
     paths: Optional[list] = None
     ttfield: Optional[np.ndarray] = None
     frechet: Optional[csr_matrix] = None
+
+    def __add__(self, other: "WaveTrackerResult"):
+
+        try:
+            self._check_compatibility(other)
+        except InputError as e:
+            raise InputError(f"Incompatible WaveTrackerResults: {e}")
+
+        if self.ttimes is not None:
+            ttimes = np.concatenate([self.ttimes, other.ttimes])
+        else:
+            ttimes = None
+        if self.paths is not None:
+            paths = self.paths + other.paths
+        else:
+            paths = None
+        if self.ttfield is not None:
+            ttfield = np.concatenate([self.ttfield, other.ttfield])
+        else:
+            ttfield = None
+        if self.frechet is not None:
+            frechet = hstack([self.frechet, other.frechet])
+        else:
+            frechet = None
+
+        return WaveTrackerResult(ttimes, paths, ttfield, frechet)
+
+    def _check_compatibility(self, other: "WaveTrackerResult"):
+        if (self.ttimes is None) != (other.ttimes is None):
+            raise InputError("Travel times are not available for both results.")
+        if (self.paths is None) != (other.paths is None):
+            raise InputError("Ray paths are not available for both results.")
+        if (self.ttfield is None) != (other.ttfield is None):
+            raise InputError("Travel time fields are not available for both results.")
+        if (self.frechet is None) != (other.frechet is None):
+            raise InputError("Frechet derivatives are not available for both results.")
 
 
 @dataclass
@@ -240,7 +276,7 @@ def calc_wavefronts_multithreading(
             result_list.append(future.result())
             print(future)
 
-    return result_list
+    return sum(result_list[1:], start=result_list[0])
 
 
 def collect_results(options: WaveTrackerOptions, velocity):
