@@ -2,13 +2,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 from scipy.interpolate import RectBivariateSpline
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, hstack
 import faulthandler
 from dataclasses import dataclass
 from typing import Optional
+import concurrent.futures
+from functools import reduce
+import operator
 
 from . import fastmarching as fmm
 from . import bases as base
+
 
 faulthandler.enable()
 
@@ -66,6 +70,42 @@ class WaveTrackerResult:
     paths: Optional[list] = None
     ttfield: Optional[np.ndarray] = None
     frechet: Optional[csr_matrix] = None
+
+    def __add__(self, other: "WaveTrackerResult"):
+
+        try:
+            self._check_compatibility(other)
+        except InputError as e:
+            raise InputError(f"Incompatible WaveTrackerResults: {e}")
+
+        if self.ttimes is not None:
+            ttimes = np.concatenate([self.ttimes, other.ttimes])
+        else:
+            ttimes = None
+        if self.paths is not None:
+            paths = self.paths + other.paths
+        else:
+            paths = None
+        if self.ttfield is not None:
+            ttfield = np.concatenate([self.ttfield, other.ttfield])
+        else:
+            ttfield = None
+        if self.frechet is not None:
+            frechet = hstack([self.frechet, other.frechet])
+        else:
+            frechet = None
+
+        return WaveTrackerResult(ttimes, paths, ttfield, frechet)
+
+    def _check_compatibility(self, other: "WaveTrackerResult"):
+        if (self.ttimes is None) != (other.ttimes is None):
+            raise InputError("Travel times are not available for both results.")
+        if (self.paths is None) != (other.paths is None):
+            raise InputError("Ray paths are not available for both results.")
+        if (self.ttfield is None) != (other.ttfield is None):
+            raise InputError("Travel time fields are not available for both results.")
+        if (self.frechet is None) != (other.frechet is None):
+            raise InputError("Frechet derivatives are not available for both results.")
 
 
 @dataclass
@@ -141,9 +181,8 @@ def calc_wavefronts(
     srcs,
     extent=[0.0, 1.0, 0.0, 1.0],
     options: Optional[WaveTrackerOptions] = None,
+    nthreads: int = 1,
 ):
-    # here extent[3],extent[2] is N-S range of grid nodes
-    #      extent[0],extent[1] is W-E range of grid nodes
     """
 
     A function to perform 2D Fast Marching of wavefronts from sources in a 2D velocity model.
@@ -154,6 +193,7 @@ def calc_wavefronts(
         srcs, ndarray(ns,2)        : source locations (x,y). Where ns is the number of receivers.
         extent, list               : 4-tuple of model extent [xmin,xmax,ymin,ymax]. (default=[0.,1.,0.,1.])
         options, WaveTrackerOptions: configuration options for the wavefront tracker. (default=None)
+        nthreads, int              : number of threads to use for multithreading. Multithreading is performed over sources (default=1)
 
 
     Returns
@@ -163,6 +203,22 @@ def calc_wavefronts(
         Internally variables are converted to np.float32 to be consistent with Fortran code fm2dss.f90.
 
     """
+
+    if nthreads <= 1:
+        return _calc_wavefronts_process(v, recs, srcs, extent, options)
+    else:
+        return _calc_wavefronts_multithreading(v, recs, srcs, nthreads, extent, options)
+
+
+def _calc_wavefronts_process(
+    v,
+    recs,
+    srcs,
+    extent=[0.0, 1.0, 0.0, 1.0],
+    options: Optional[WaveTrackerOptions] = None,
+):
+    # here extent[3],extent[2] is N-S range of grid nodes
+    #      extent[0],extent[1] is W-E range of grid nodes
     if options is None:
         options = WaveTrackerOptions()
 
@@ -214,6 +270,33 @@ def calc_wavefronts(
     fmm.deallocate_result_arrays()
 
     return result
+
+
+def _calc_wavefronts_multithreading(
+    v,
+    recs,
+    srcs,
+    nthreads=2,
+    extent=[0.0, 1.0, 0.0, 1.0],
+    options: Optional[WaveTrackerOptions] = None,
+) -> WaveTrackerResult:
+
+    # Since this function is called when there are multiple sources, we can't specify a single source for the full field calcutlation
+    # Although we could create a list of source indices...
+    options.ttfield_source = -1
+
+    futures = []
+    # https://docs.python.org/3/library/concurrent.futures.html
+    with concurrent.futures.ProcessPoolExecutor(max_workers=nthreads) as executor:
+        for i in range(np.shape(srcs)[0]):
+            futures.append(
+                executor.submit(
+                    _calc_wavefronts_process, v, recs, srcs[i, :], extent, options
+                )
+            )
+    result_list = [f.result() for f in futures]
+
+    return reduce(operator.add, result_list)
 
 
 def collect_results(options: WaveTrackerOptions, velocity):
