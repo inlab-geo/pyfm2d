@@ -219,9 +219,6 @@ def calc_wavefronts(
     return result
 
 
-
-
-
 def calc_wavefronts_multithreading(
     v,
     recs,
@@ -229,19 +226,18 @@ def calc_wavefronts_multithreading(
     nthreads=2,
     extent=[0.0, 1.0, 0.0, 1.0],
     options: Optional[WaveTrackerOptions] = None,
-):
+) -> WaveTrackerResult:
 
-       
-    result_list=[]
-    
-    futures=[]
+    result_list = []
+    futures = []
     # https://docs.python.org/3/library/concurrent.futures.html
     with concurrent.futures.ProcessPoolExecutor(max_workers=nthreads) as executor:
         for i in range(np.shape(srcs)[0]):
-            futures.append(executor.submit(calc_wavefronts(v,recs,srcs[i,:],extent,options)))
+            futures.append(
+                executor.submit(calc_wavefronts, v, recs, srcs[i, :], extent, options)
+            )
         for future in concurrent.futures.as_completed(futures):
-            
-            result_list.append(future.result)
+            result_list.append(future.result())
             print(future)
 
     return result_list
