@@ -283,7 +283,6 @@ def _calc_wavefronts_multithreading(
     # Although we could create a list of source indices...
     options.ttfield_source = -1
 
-    result_list = []
     futures = []
     # https://docs.python.org/3/library/concurrent.futures.html
     with concurrent.futures.ProcessPoolExecutor(max_workers=nthreads) as executor:
@@ -293,8 +292,7 @@ def _calc_wavefronts_multithreading(
                     _calc_wavefronts_process, v, recs, srcs[i, :], extent, options
                 )
             )
-        for future in concurrent.futures.as_completed(futures):
-            result_list.append(future.result())
+    result_list = [f.result() for f in futures]
 
     return sum(result_list[1:], start=result_list[0])
 
