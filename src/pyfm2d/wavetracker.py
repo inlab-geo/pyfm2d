@@ -264,6 +264,10 @@ def calc_wavefronts_multithreading(
     options: Optional[WaveTrackerOptions] = None,
 ) -> WaveTrackerResult:
 
+    # Since this function is called when there are multiple sources, we can't specify a single source for the full field calcutlation
+    # Although we could create a list of source indices...
+    options.ttfield_source = -1
+
     result_list = []
     futures = []
     # https://docs.python.org/3/library/concurrent.futures.html
