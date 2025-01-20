@@ -11,7 +11,7 @@
 MODULE globalp
    IMPLICIT NONE
    INTEGER, PARAMETER :: i10 = SELECTED_REAL_KIND(10, 100)
-   INTEGER :: checkstat
+   INTEGER :: checkstat, err
    INTEGER, SAVE :: nvx, nvz, nnx, nnz, nrc, fom, gdx, gdz
    INTEGER, SAVE :: vnl, vnr, vnt, vnb, nrnx, nrnz, sgdl, rbint
    INTEGER, SAVE :: nnxr, nnzr, asgr
@@ -133,7 +133,8 @@ CONTAINS
          isz = isz*180.0/pi
          WRITE (6, *) "1: Source lies outside bounds of model (lat,long)= ", isx, isz
          WRITE (6, *) "TERMINATING PROGRAM!!!"
-         STOP
+         err = 1
+         RETURN
       END IF
       IF (isx .eq. nnx) isx = isx - 1
       IF (isz .eq. nnz) isz = isz - 1
@@ -978,7 +979,8 @@ CONTAINS
             irz = irz*180.0/pi
             WRITE (6, *) "Receiver lies outside model (lat,long)= ", irx, irz
             WRITE (6, *) "TERMINATING PROGRAM!!!!"
-            STOP
+            err = 1
+            RETURN
          END IF
          IF (irx .eq. nnx) irx = irx - 1
          IF (irz .eq. nnz) irz = irz - 1
@@ -1179,7 +1181,8 @@ CONTAINS
             ipz = ipz*180.0/pi
             WRITE (6, *) "Receiver lies outside model (lat,long)= ", ipx, ipz
             WRITE (6, *) "TERMINATING PROGRAM!!!"
-            STOP
+            err = 1
+            RETURN
          END IF
          IF (ipx .eq. nnx) ipx = ipx - 1
          IF (ipz .eq. nnz) ipz = ipz - 1
@@ -1825,7 +1828,8 @@ CONTAINS
             irz = irz*180.0/pi
             WRITE (6, *) "Receiver lies outside model (lat,long)= ", irx, irz
             WRITE (6, *) "TERMINATING PROGRAM!!!!"
-            STOP
+            err = 1
+            RETURN
          END IF
          IF (irx .eq. nnx) irx = irx - 1
          IF (irz .eq. nnz) irz = irz - 1
@@ -2021,7 +2025,8 @@ CONTAINS
             ipz = ipz*180.0/pi
             WRITE (6, *) "Receiver lies outside model (lat,long)= ", ipx, ipz
             WRITE (6, *) "TERMINATING PROGRAM!!!"
-            STOP
+            err = 1
+            RETURN
          END IF
          IF (ipx .eq. nnx) ipx = ipx - 1
          IF (ipz .eq. nnz) ipz = ipz - 1
@@ -2838,14 +2843,14 @@ CONTAINS
    subroutine deallocate_result_arrays() bind(c, name="deallocate_result_arrays")
 
 	if (fsrt .eq. 1) then
-		!!	print*,">>> ttimes"
+			print*,">>> ttimes"
 
     	deallocate(ttimes)
     	deallocate(tids)
     end if
        
   	if (cfd .EQ. 1) then
-  	  	!!		print*,">>> frechet"
+  	  			print*,">>> frechet"
 
     	deallocate(frechet_irow)
     	deallocate(frechet_icol)
@@ -2861,9 +2866,10 @@ CONTAINS
     end if
     
     if (wttf .eq. 1) then 
-        !!		print*,">>> tfields"
+        		print*,">>> tfields"
 
-    deallocate(tfields)    
+    deallocate(tfields)   
+    print*,"deallocated tfields" 
     end if
 
 	end subroutine deallocate_result_arrays
@@ -2940,7 +2946,7 @@ CONTAINS
 	end subroutine get_traveltime_fields
 	
 
-   SUBROUTINE track() bind(c, name="track")
+   SUBROUTINE track(err_) bind(c, name="track")
       USE globalp
       USE traveltime
       IMPLICIT NONE
@@ -2950,6 +2956,7 @@ CONTAINS
       INTEGER :: isx, isz, sw, idm1, idm2, nnxb, nnzb
       INTEGER :: ogx, ogz, grdfx, grdfz, maxbt
       REAL(KIND=i10) :: x, z, goxb, gozb, dnxb, dnzb
+      INTEGER(c_int) :: err_
 !
 ! sources = File containing source locations
 ! receivers = File containing receiver locations
@@ -3162,7 +3169,9 @@ CONTAINS
                isz = isz*180.0/pi
                WRITE (6, *) "2: Source lies outside bounds of model (lat,long)= ", isx, isz
                WRITE (6, *) "TERMINATING PROGRAM!!!"
-               STOP
+               err_ = 1
+               DEALLOCATE (ttn, nsts, btg, velnb)
+                RETURN
             END IF
             IF (isx .eq. nnx) isx = isx - 1
             IF (isz .eq. nnz) isz = isz - 1
@@ -3215,6 +3224,11 @@ CONTAINS
 !
             urg = 1
             CALL travel(x, z, urg)
+            IF (err .NE. 0) THEN
+                err_ = err
+                DEALLOCATE (ttn, nsts, btg, velnb)
+                RETURN
+            END IF
 !
 !     Now map refined grid onto coarse grid.
 !
@@ -3298,12 +3312,22 @@ CONTAINS
 !
             urg = 2
             CALL travel(x, z, urg)
+            IF (err .NE. 0) THEN
+                err_ = err
+                deallocate (ttnr, nstsr)
+                 RETURN 
+            END IF
          ELSE
 !
 !     Call a subroutine that works out the first-arrival traveltime
 !     field.
 !
             CALL travel(x, z, urg)
+            IF (err .NE. 0) THEN
+                err_ = err
+                deallocate (ttn, nsts, btg)
+                RETURN 
+            END IF
          END IF
 
 
@@ -3314,6 +3338,10 @@ CONTAINS
          IF (fsrt .eq. 1) THEN
          	!	print *,"### srtimes2"
             CALL srtimes2(x, z, i)
+            IF (err .NE. 0) THEN
+                err_ = err
+                RETURN
+            END IF
          END IF
 !
 !  Calculate raypath geometries and write to file if required.
@@ -3323,6 +3351,10 @@ CONTAINS
          IF (wrgf .eq. i .OR. wrgf .LT. 0 .OR. cfd .EQ. 1) THEN
         ! 		print *,"### rpaths2"
             CALL rpaths2(wrgf, i, cfd, x, z)
+            IF (err .NE. 0) THEN
+                err_ = err
+                RETURN
+            END IF
          END IF
              
 !
@@ -3409,7 +3441,7 @@ CONTAINS
 ! accurately  described as Fortran 77 with some of the Fortran 90
 ! extensions.
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   SUBROUTINE fmmin2d() bind(c, name="fmmin2d")
+   SUBROUTINE fmmin2d(err_) bind(c, name="fmmin2d")
       USE globalp
       USE traveltime
       IMPLICIT NONE
@@ -3418,6 +3450,7 @@ CONTAINS
       INTEGER :: i, j, k, l, wttf, fsrt, wrgf, cfd, tnr, urg
       INTEGER :: sgs, isx, isz, sw, idm1, idm2, nnxb, nnzb
       INTEGER :: ogx, ogz, grdfx, grdfz, maxbt
+      INTEGER(c_int) :: err_
       REAL(KIND=i10) :: x, z, goxb, gozb, dnxb, dnzb
 !
 ! sources = File containing source locations
@@ -3622,7 +3655,9 @@ CONTAINS
                isz = isz*180.0/pi
                WRITE (6, *) "3: Source lies outside bounds of model (lat,long)= ", isx, isz
                WRITE (6, *) "TERMINATING PROGRAM!!!"
-               STOP
+               err_ = 1
+               deallocate (ttn, nsts, btg, velnb)
+                RETURN
             END IF
             IF (isx .eq. nnx) isx = isx - 1
             IF (isz .eq. nnz) isz = isz - 1
@@ -3675,6 +3710,12 @@ CONTAINS
 !
             urg = 1
             CALL travel(x, z, urg)
+            if (err .ne. 0) then
+               WRITE (6, *) 'Error with travel: PROGRAM fmmin2d'
+                err_ = err
+                deallocate (ttn, nsts, btg, velnb)
+               RETURN
+            end if
 !
 !     Now map refined grid onto coarse grid.
 !
@@ -3758,18 +3799,35 @@ CONTAINS
 !
             urg = 2
             CALL travel(x, z, urg)
+            if (err .ne. 0) then
+               WRITE (6, *) 'Error with travel: PROGRAM fmmin2d'
+               err_ = err
+                deallocate (ttnr, nstsr)
+               RETURN
+            end if
          ELSE
 !
 !     Call a subroutine that works out the first-arrival traveltime
 !     field.
 !
             CALL travel(x, z, urg)
+            if (err .ne. 0) then
+               WRITE (6, *) 'Error with travel: PROGRAM fmmin2d'
+               err_ = err
+                deallocate (ttn, nsts, btg)
+               RETURN
+            end if
          END IF
 !
 !  Find source-receiver traveltimes if required
 !
          IF (fsrt .eq. 1) THEN
             CALL srtimes(x, z, i)
+            if (err .ne. 0) then
+               WRITE (6, *) 'Error with srtimes: PROGRAM fmmin2d'
+               err_ = err
+               RETURN
+            end if
          END IF
 !
 !  Calculate raypath geometries and write to file if required.
@@ -3778,6 +3836,12 @@ CONTAINS
 !
          IF (wrgf .eq. i .OR. wrgf .LT. 0 .OR. cfd .EQ. 1) THEN
             CALL rpaths(wrgf, i, cfd, x, z)
+            IF (err .ne. 0) then
+               WRITE (6, *) 'Error with rpaths: PROGRAM fmmin2d'
+               err_ = err
+               ! NEED TO DEALLOCATE WHEREEVER I HAVE PUT THESE RETURNS IN
+               RETURN
+            end if
          END IF
 !
 !  If required, write traveltime field to file

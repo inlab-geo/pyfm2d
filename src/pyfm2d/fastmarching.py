@@ -11,11 +11,19 @@ libfm2d = ctypes.cdll.LoadLibrary(str(lib_path))
 
 
 def fmmin2d():
-    libfm2d.fmmin2d()
+    err = ctypes.c_int(0)
+    libfm2d.fmmin2d(ctypes.byref(err))
+    if err.value:
+        libfm2d.deallocate_result_arrays()
+        raise Exception("Error in tracking")
 
 
 def track():
-    libfm2d.track()
+    err = ctypes.c_int(0)
+    libfm2d.track(ctypes.byref(err))
+    if err.value:
+        libfm2d.deallocate_result_arrays()
+        raise Exception("Error in tracking")
 
 
 def read_solver_options(fn_):
@@ -75,6 +83,7 @@ def get_solver_options():
     cfd_ = ctypes.c_int(-99)
     wttf_ = ctypes.c_int(-99)
     wrgf_ = ctypes.c_int(-99)
+
 
     libfm2d.get_solver_options(
         ctypes.byref(gdx_),

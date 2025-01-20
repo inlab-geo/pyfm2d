@@ -301,5 +301,3 @@ def test_track_source_outside_model():
 
     with pytest.raises(Exception):
         fmm.track()
-
-    fmm.deallocate_result_arrays()
