@@ -6,11 +6,13 @@ from scipy.sparse import csr_matrix, hstack
 import faulthandler
 from dataclasses import dataclass
 from typing import Optional
+import concurrent.futures
+from functools import reduce
+import operator
 
 from . import fastmarching as fmm
 from . import bases as base
 
-import concurrent.futures
 
 faulthandler.enable()
 
@@ -294,7 +296,7 @@ def _calc_wavefronts_multithreading(
             )
     result_list = [f.result() for f in futures]
 
-    return sum(result_list[1:], start=result_list[0])
+    return reduce(operator.add, result_list)
 
 
 def collect_results(options: WaveTrackerOptions, velocity):
