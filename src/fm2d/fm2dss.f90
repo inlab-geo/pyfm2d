@@ -2843,14 +2843,12 @@ CONTAINS
    subroutine deallocate_result_arrays() bind(c, name="deallocate_result_arrays")
 
 	if (fsrt .eq. 1) then
-			print*,">>> ttimes"
 
     	deallocate(ttimes)
     	deallocate(tids)
     end if
        
   	if (cfd .EQ. 1) then
-  	  			print*,">>> frechet"
 
     	deallocate(frechet_irow)
     	deallocate(frechet_icol)
@@ -2859,17 +2857,14 @@ CONTAINS
 
    	!if (wrgf .eq. 1) then ! MS changed to allow consistency with use of wrgf elsewhere
    	if (wrgf .ne. 0) then
-   	   	!!		print*,">>> paths"
 
     	deallocate(paths)
     	deallocate(nppts)
     end if
     
     if (wttf .eq. 1) then 
-        		print*,">>> tfields"
 
     deallocate(tfields)   
-    print*,"deallocated tfields" 
     end if
 
 	end subroutine deallocate_result_arrays
