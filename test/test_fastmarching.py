@@ -1,8 +1,7 @@
 import numpy as np
 import pytest
 from dataclasses import dataclass
-
-import matplotlib.pyplot as plt
+import ctypes
 
 from pyfm2d import fastmarching as fmm
 
@@ -65,13 +64,7 @@ def test_set_solver_options():
     assert wrgf == options.lpaths
 
 
-@pytest.mark.skip(
-    reason="Successfull calling of the function exits the python instance"
-)
 def test_fmmin2d():
-    # Can't properly test this function
-    # because the underlying Fortran subroutine
-    # calls STOP which exits the python instance
     fmm.fmmin2d()
 
 
@@ -217,6 +210,19 @@ def test_read_source_receiver_associations():
     assert np.array_equal(srs, associations)
 
 
+def test_set_source_receiver_associations():
+    fmm.read_sources(SOURCESFILE)
+    fmm.read_receivers(RECEIVERSFILE)
+    nsrc = fmm.get_sources()[0].size
+    nrec = fmm.get_receivers()[0].size
+
+    associations = np.loadtxt(ASSOCIATIONSFILE, dtype=int).reshape(nrec, nsrc)
+    fmm.set_source_receiver_associations(associations)
+    srs = fmm.get_source_receiver_associations()
+
+    assert np.array_equal(srs, associations)
+
+
 def test_track():
     # track is the main function
     #
@@ -259,5 +265,41 @@ def test_track():
 
     frechet = fmm.get_frechet_derivatives()
     assert frechet is not None
+
+    fmm.deallocate_result_arrays()
+
+
+def test_track_source_outside_model():
+    options = FMMOptions()
+
+    fmm.set_solver_options(
+        np.int32(options.dicex),
+        np.int32(options.dicey),
+        np.int32(options.sourcegridrefine),
+        np.int32(options.sourcedicelevel),
+        np.int32(options.sourcegridsize),
+        np.float32(options.earthradius),
+        np.int32(options.schemeorder),
+        np.float32(options.nbsize),
+        np.int32(options.lttimes),
+        np.int32(options.lfrechet),
+        np.int32(options.tfieldsource + 1),
+        np.int32(options.lpaths),
+    )
+
+    fmm.read_velocity_model(VELMODELFILE)
+    fmm.read_sources(SOURCESFILE)
+    fmm.read_receivers(RECEIVERSFILE)
+    fmm.read_source_receiver_associations(ASSOCIATIONSFILE)
+
+    # set source outside the model
+    scx, scz = fmm.get_sources()
+    scx[0] = 1000.0
+    fmm.set_sources(scx, scz)
+
+    fmm.allocate_result_arrays()
+
+    with pytest.raises(Exception):
+        fmm.track()
 
     fmm.deallocate_result_arrays()
