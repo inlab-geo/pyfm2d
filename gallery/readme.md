@@ -29,4 +29,4 @@ For notebook see [the checkerboard example](../examples/FMM_demo%20checkerboard.
 <img src="images/pyfm2d_parallel_M1_Ultra.png" alt="wavefronts for a single source" width="445"/>
 
 Timing experiment using multi-cpu feature
-For notebook see [the checkerboard example](../examples/FMM_demo_borehole_parallel.ipynb)
+For notebook see [the parallel example](../examples/FMM_demo_borehole_parallel.ipynb)
