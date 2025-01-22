@@ -24,6 +24,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup GNU Fortran
+        uses: fortran-lang/setup-fortran@v1
+
       - name: Install uv and set the python version
         uses: astral-sh/setup-uv@v5
         with:
