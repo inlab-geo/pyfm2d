@@ -24,3 +24,9 @@ For notebook see [the surface wave example](../examples/FMM_demo%20Surface%20Wav
 
 Checkerboard model with severely distorted raypaths.
 For notebook see [the checkerboard example](../examples/FMM_demo%20checkerboard.ipynb)
+
+
+<img src="images/checkerboard_raypaths.jpg" alt="Single versus multiple" width="480"/><img src="images/pyfm2d_parallel_M1_Ultra.png" alt="wavefronts for a single source" width="445"/>
+
+Timing experiment using multi-cpu feature
+For notebook see [the parallel example](../examples/FMM_demo_borehole_parallel.ipynb)
