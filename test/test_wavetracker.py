@@ -10,7 +10,7 @@ import numpy as np
 from pyfm2d import WaveTrackerOptions, display_model, BasisModel
 from pyfm2d.wavetracker import _calc_wavefronts_process, _calc_wavefronts_multithreading
 
-PLOT = True
+PLOT = False
 HOMOGENOUS_VELOCITY = 2.0
 
 
