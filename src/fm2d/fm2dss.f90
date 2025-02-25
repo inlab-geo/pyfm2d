@@ -2564,7 +2564,8 @@ CONTAINS
       call gridder2()
    end subroutine read_velocity_model
 
-   subroutine set_velocity_model(nvx_, nvz_, goxd_, gozd_, dvxd_, dvzd_, velv_) bind(c, name="set_velocity_model")
+   subroutine set_velocity_model(nvx_, nvz_, goxd_, gozd_, &
+       dvxd_, dvzd_, velv_) bind(c, name="set_velocity_model")
       integer nvx_, nvz_
       real goxd_, gozd_
       real dvxd_, dvzd_
@@ -2612,7 +2613,8 @@ CONTAINS
    end subroutine get_number_of_grid_nodes
 
 
-   subroutine get_velocity_model(nvx_, nvz_, goxd_, gozd_, dvxd_, dvzd_, velv_) bind(c, name="get_velocity_model")
+   subroutine get_velocity_model(nvx_, nvz_, goxd_, gozd_, dvxd_, &
+   dvzd_, velv_) bind(c, name="get_velocity_model")
       integer nvx_, nvz_
       real goxd_, gozd_
       real dvxd_, dvzd_
@@ -2742,7 +2744,8 @@ CONTAINS
       end do
    end subroutine get_receivers
 
-   subroutine read_source_receiver_associations(fn_ptr, fn_ptr_length) bind(c, name="read_source_receiver_associations")
+   subroutine read_source_receiver_associations(fn_ptr, &
+   fn_ptr_length) bind(c, name="read_source_receiver_associations")
       type(c_ptr), value::  fn_ptr
       integer(c_int), value :: fn_ptr_length
       character(len=fn_ptr_length, kind=c_char), pointer :: fn_str
@@ -2887,7 +2890,8 @@ CONTAINS
 	
 	end subroutine get_traveltimes
 	
-	subroutine get_maximum_number_of_frechet_derivatives(max_frechet_nnz_) bind(c, name="get_maximum_number_of_frechet_derivatives")
+	subroutine get_maximum_number_of_frechet_derivatives(max_frechet_nnz_) &
+	bind(c, name="get_maximum_number_of_frechet_derivatives")
 	integer(c_int), intent(inout) :: max_frechet_nnz_
 	max_frechet_nnz_= max_frechet_nnz
 	end subroutine get_maximum_number_of_frechet_derivatives
@@ -2898,7 +2902,8 @@ CONTAINS
 	end subroutine get_number_of_frechet_derivatives
 
 	
-	subroutine get_frechet_derivatives(frechet_irow_,frechet_icol_,frechet_val_) bind(c, name="get_frechet_derivatives")
+	subroutine get_frechet_derivatives(frechet_irow_,frechet_icol_,frechet_val_) &
+	bind(c, name="get_frechet_derivatives")
     integer(c_int), intent(inout) :: frechet_irow_(frechet_nnz),frechet_icol_(frechet_nnz)
 	real(c_float), intent(inout) :: frechet_val_(frechet_nnz)
 	integer i
@@ -2916,7 +2921,8 @@ CONTAINS
 	end subroutine get_number_of_raypaths
 
 	
-	subroutine get_maximum_number_of_points_per_raypath(max_nppts_)bind(c, name="get_maximum_number_of_points_per_raypath")
+	subroutine get_maximum_number_of_points_per_raypath(max_nppts_)&
+	bind(c, name="get_maximum_number_of_points_per_raypath")
 	integer(c_int) max_nppts_
 	max_nppts_=max_nppts
 	end subroutine get_maximum_number_of_points_per_raypath
