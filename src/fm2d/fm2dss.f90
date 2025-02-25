@@ -2493,7 +2493,8 @@ CONTAINS
       end subroutine read_solver_options
    
    
-   subroutine set_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_,fsrt_, cfd_, wttf_, wrgf_) bind(c, name="set_solver_options")
+   subroutine set_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_,fsrt_, &
+   cfd_, wttf_, wrgf_) bind(c, name="set_solver_options")
        integer(c_int) gdx_,gdz_,asgr_,sgdl_,sgs_
        real(c_float) earth_,snb_
        integer(c_int) fom_
@@ -2513,7 +2514,8 @@ CONTAINS
     wrgf=wrgf_
     end subroutine set_solver_options
 
-   subroutine get_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_,fsrt_,cfd_,wttf_, wrgf_) bind(c, name="get_solver_options")
+   subroutine get_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_,fsrt_, &
+   cfd_,wttf_, wrgf_) bind(c, name="get_solver_options")
        integer(c_int) gdx_,gdz_,asgr_,sgdl_,sgs_
        real(c_float) earth_,snb_
        integer(c_int) fom_
@@ -2600,7 +2602,8 @@ CONTAINS
    
    end subroutine set_velocity_model
 
-   subroutine get_number_of_velocity_model_vertices(nvx_,nvz_) bind(c, name="get_number_of_velocity_model_vertices")
+   subroutine get_number_of_velocity_model_vertices(nvx_,nvz_) &
+   bind(c, name="get_number_of_velocity_model_vertices")
 	integer nvx_,nvz_
 	nvx_=nvx
 	nvz_=nvz
@@ -2896,7 +2899,8 @@ CONTAINS
 	max_frechet_nnz_= max_frechet_nnz
 	end subroutine get_maximum_number_of_frechet_derivatives
 	
-	subroutine get_number_of_frechet_derivatives(frechet_nnz_) bind(c, name="get_number_of_frechet_derivatives")
+	subroutine get_number_of_frechet_derivatives(frechet_nnz_) &
+	bind(c, name="get_number_of_frechet_derivatives")
 	integer(c_int), intent(inout) :: frechet_nnz_
 	frechet_nnz_= frechet_nnz
 	end subroutine get_number_of_frechet_derivatives
