@@ -5,7 +5,7 @@ on:
   push:
     branches: main
     paths:
-      - "src/cofi/version.py"
+      - "src/pyfm2d/version.py"
 
 jobs:
   publish_pypi:
