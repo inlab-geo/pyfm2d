@@ -2493,7 +2493,8 @@ CONTAINS
       end subroutine read_solver_options
    
    
-   subroutine set_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_,fsrt_, cfd_, wttf_, wrgf_) bind(c, name="set_solver_options")
+   subroutine set_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_,fsrt_, &
+   cfd_, wttf_, wrgf_) bind(c, name="set_solver_options")
        integer(c_int) gdx_,gdz_,asgr_,sgdl_,sgs_
        real(c_float) earth_,snb_
        integer(c_int) fom_
@@ -2513,7 +2514,8 @@ CONTAINS
     wrgf=wrgf_
     end subroutine set_solver_options
 
-   subroutine get_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_,fsrt_,cfd_,wttf_, wrgf_) bind(c, name="get_solver_options")
+   subroutine get_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_,fsrt_, &
+   cfd_,wttf_, wrgf_) bind(c, name="get_solver_options")
        integer(c_int) gdx_,gdz_,asgr_,sgdl_,sgs_
        real(c_float) earth_,snb_
        integer(c_int) fom_
@@ -2564,7 +2566,8 @@ CONTAINS
       call gridder2()
    end subroutine read_velocity_model
 
-   subroutine set_velocity_model(nvx_, nvz_, goxd_, gozd_, dvxd_, dvzd_, velv_) bind(c, name="set_velocity_model")
+   subroutine set_velocity_model(nvx_, nvz_, goxd_, gozd_, &
+       dvxd_, dvzd_, velv_) bind(c, name="set_velocity_model")
       integer nvx_, nvz_
       real goxd_, gozd_
       real dvxd_, dvzd_
@@ -2599,7 +2602,8 @@ CONTAINS
    
    end subroutine set_velocity_model
 
-   subroutine get_number_of_velocity_model_vertices(nvx_,nvz_) bind(c, name="get_number_of_velocity_model_vertices")
+   subroutine get_number_of_velocity_model_vertices(nvx_,nvz_) &
+   bind(c, name="get_number_of_velocity_model_vertices")
 	integer nvx_,nvz_
 	nvx_=nvx
 	nvz_=nvz
@@ -2612,7 +2616,8 @@ CONTAINS
    end subroutine get_number_of_grid_nodes
 
 
-   subroutine get_velocity_model(nvx_, nvz_, goxd_, gozd_, dvxd_, dvzd_, velv_) bind(c, name="get_velocity_model")
+   subroutine get_velocity_model(nvx_, nvz_, goxd_, gozd_, dvxd_, &
+   dvzd_, velv_) bind(c, name="get_velocity_model")
       integer nvx_, nvz_
       real goxd_, gozd_
       real dvxd_, dvzd_
@@ -2742,7 +2747,8 @@ CONTAINS
       end do
    end subroutine get_receivers
 
-   subroutine read_source_receiver_associations(fn_ptr, fn_ptr_length) bind(c, name="read_source_receiver_associations")
+   subroutine read_source_receiver_associations(fn_ptr, &
+   fn_ptr_length) bind(c, name="read_source_receiver_associations")
       type(c_ptr), value::  fn_ptr
       integer(c_int), value :: fn_ptr_length
       character(len=fn_ptr_length, kind=c_char), pointer :: fn_str
@@ -2887,18 +2893,21 @@ CONTAINS
 	
 	end subroutine get_traveltimes
 	
-	subroutine get_maximum_number_of_frechet_derivatives(max_frechet_nnz_) bind(c, name="get_maximum_number_of_frechet_derivatives")
+	subroutine get_maximum_number_of_frechet_derivatives(max_frechet_nnz_) &
+	bind(c, name="get_maximum_number_of_frechet_derivatives")
 	integer(c_int), intent(inout) :: max_frechet_nnz_
 	max_frechet_nnz_= max_frechet_nnz
 	end subroutine get_maximum_number_of_frechet_derivatives
 	
-	subroutine get_number_of_frechet_derivatives(frechet_nnz_) bind(c, name="get_number_of_frechet_derivatives")
+	subroutine get_number_of_frechet_derivatives(frechet_nnz_) &
+	bind(c, name="get_number_of_frechet_derivatives")
 	integer(c_int), intent(inout) :: frechet_nnz_
 	frechet_nnz_= frechet_nnz
 	end subroutine get_number_of_frechet_derivatives
 
 	
-	subroutine get_frechet_derivatives(frechet_irow_,frechet_icol_,frechet_val_) bind(c, name="get_frechet_derivatives")
+	subroutine get_frechet_derivatives(frechet_irow_,frechet_icol_,frechet_val_) &
+	bind(c, name="get_frechet_derivatives")
     integer(c_int), intent(inout) :: frechet_irow_(frechet_nnz),frechet_icol_(frechet_nnz)
 	real(c_float), intent(inout) :: frechet_val_(frechet_nnz)
 	integer i
@@ -2916,7 +2925,8 @@ CONTAINS
 	end subroutine get_number_of_raypaths
 
 	
-	subroutine get_maximum_number_of_points_per_raypath(max_nppts_)bind(c, name="get_maximum_number_of_points_per_raypath")
+	subroutine get_maximum_number_of_points_per_raypath(max_nppts_)&
+	bind(c, name="get_maximum_number_of_points_per_raypath")
 	integer(c_int) max_nppts_
 	max_nppts_=max_nppts
 	end subroutine get_maximum_number_of_points_per_raypath
