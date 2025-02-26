@@ -1,0 +1,85 @@
+name: Build and Deploy
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-wheel:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: ["ubuntu-latest", "macos-latest"]
+      fail-fast: false
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup GNU Fortran
+        uses: fortran-lang/setup-fortran@v1
+        id: setup-fortran
+        with:
+          compiler: gcc
+          version: 11
+    
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.22
+        with:
+          output-dir: wheelhouse
+        env:
+          CIBW_SKIP: pp* cp36* cp37* cp38* *-win32 *-manylinux_i686 *-musllinux_*
+          MACOSX_DEPLOYMENT_TARGET: 14
+
+      - name: Upload wheels as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}-wheelhouse
+          path: wheelhouse
+
+  build-sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Set up environment
+        run: |
+          python -m pip install scikit-build-core build
+
+      - name: Build and check sdist
+        run: |
+          python -m build --sdist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          path: dist/*.tar.gz
+          name: sourcedist
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [build-wheel, build-sdist]
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    environment: deployment
+    permissions:
+      id-token: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: dist
+
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@v1.12.3
