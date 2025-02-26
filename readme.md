@@ -11,9 +11,17 @@ This repository contains ctypes based Python wrappers for the program `fm2dss.F9
 
 ## Installation
 
+PyFM2D can be directly installed from this repository
 ```
 pip install git+https://github.com/inlab-geo/pyfm2d
 ```
+
+Alternatively it is available on pypi and can be installed with
+
+```
+pip install pyfm2d
+```
+
 ## Documentation
 
 This is a package of several elements.
