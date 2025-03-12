@@ -2842,34 +2842,41 @@ CONTAINS
    end subroutine allocate_result_arrays
 
    subroutine deallocate_result_arrays() bind(c, name="deallocate_result_arrays")
-
 	if (fsrt .eq. 1) then
-		!!	print*,">>> ttimes"
-
-    	deallocate(ttimes)
-    	deallocate(tids)
+        if (allocated(ttimes)) then
+            deallocate(ttimes)
+        end if
+        if (allocated(tids)) then
+            deallocate(tids)
+        end if
     end if
        
   	if (cfd .EQ. 1) then
-  	  	!!		print*,">>> frechet"
-
-    	deallocate(frechet_irow)
-    	deallocate(frechet_icol)
-    	deallocate(frechet_val)
+        if (allocated(frechet_icol)) then
+            deallocate(frechet_icol)
+        end if
+        if (allocated(frechet_val)) then
+            deallocate(frechet_val)
+        end if
+        if (allocated(frechet_irow)) then
+            deallocate(frechet_irow)
+        end if
     end if
 
    	!if (wrgf .eq. 1) then ! MS changed to allow consistency with use of wrgf elsewhere
    	if (wrgf .ne. 0) then
-   	   	!!		print*,">>> paths"
-
-    	deallocate(paths)
-    	deallocate(nppts)
+        if (allocated(paths)) then
+            deallocate(paths)
+        end if
+        if (allocated(nppts)) then
+    	    deallocate(nppts)
+        end if
     end if
     
     if (wttf .eq. 1) then 
-        !!		print*,">>> tfields"
-
-    deallocate(tfields)    
+        if (allocated(tfields)) then
+            deallocate(tfields)
+        end if
     end if
 
 	end subroutine deallocate_result_arrays
