@@ -2,15 +2,16 @@ import numpy as np
 import pytest
 from dataclasses import dataclass
 
-import matplotlib.pyplot as plt
+from pathlib import Path
 
 from pyfm2d import fastmarching as fmm
 
-FMINFILE = "fm2dss.in"
-VELMODELFILE = "gridc.vtx"
-SOURCESFILE = "sources.dat"
-RECEIVERSFILE = "receivers.dat"
-ASSOCIATIONSFILE = "otimes.dat"
+DATADIR = Path(__file__).parent
+FMINFILE = str(DATADIR / "fm2dss.in")
+VELMODELFILE = str(DATADIR / "gridc.vtx")
+SOURCESFILE = str(DATADIR / "sources.dat")
+RECEIVERSFILE = str(DATADIR / "receivers.dat")
+ASSOCIATIONSFILE = str(DATADIR / "otimes.dat")
 
 
 @dataclass
