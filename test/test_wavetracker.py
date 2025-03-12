@@ -8,7 +8,12 @@ Created on Fri Jan 10 08:33:05 2025
 import numpy as np
 
 from pyfm2d import WaveTrackerOptions, display_model, BasisModel
-from pyfm2d.wavetracker import _calc_wavefronts_process, _calc_wavefronts_multithreading
+from pyfm2d.wavetracker import (
+    _calc_wavefronts_process,
+    _calc_wavefronts_multithreading,
+    cleanup,
+    _build_velocity_grid
+)
 
 PLOT = False
 HOMOGENOUS_VELOCITY = 2.0
@@ -39,7 +44,7 @@ def create_velocity_grid_model():
 
 def calculate_expected_tt(src, rec):
     diff = (src[:, np.newaxis] - rec).reshape(-1, 2)  # some broadcasting magic
-    return np.sqrt(np.sum(diff ** 2, axis=1)) / HOMOGENOUS_VELOCITY
+    return np.sqrt(np.sum(diff**2, axis=1)) / HOMOGENOUS_VELOCITY
 
 
 def test__calc_wavefonts_process():
@@ -68,6 +73,15 @@ def test__calc_wavefonts_process():
 
     if PLOT:
         display_model(g.get_velocity(), paths=result.paths)
+
+
+def test_cleanup():
+
+    @cleanup
+    def failing_function():
+        raise ValueError("This function should fail")
+
+    failing_function()
 
 
 def test_calc_wavefonts_multithreading():
