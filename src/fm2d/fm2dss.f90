@@ -125,16 +125,6 @@ CONTAINS
 !
       isx = INT((scx - gox)/dnx) + 1
       isz = INT((scz - goz)/dnz) + 1
-      sw = 0
-      IF (isx .lt. 1 .or. isx .gt. nnx) sw = 1
-      IF (isz .lt. 1 .or. isz .gt. nnz) sw = 1
-      IF (sw .eq. 1) then
-         isx = 90.0 - isx*180.0/pi
-         isz = isz*180.0/pi
-         WRITE (6, *) "1: Source lies outside bounds of model (lat,long)= ", isx, isz
-         WRITE (6, *) "TERMINATING PROGRAM!!!"
-         STOP
-      END IF
       IF (isx .eq. nnx) isx = isx - 1
       IF (isz .eq. nnz) isz = isz - 1
 !
@@ -970,16 +960,6 @@ CONTAINS
 !
          irx = INT((rcx(i) - gox)/dnx) + 1
          irz = INT((rcz(i) - goz)/dnz) + 1
-         sw = 0
-         IF (irx .lt. 1 .or. irx .gt. nnx) sw = 1
-         IF (irz .lt. 1 .or. irz .gt. nnz) sw = 1
-         IF (sw .eq. 1) then
-            irx = 90.0 - irx*180.0/pi
-            irz = irz*180.0/pi
-            WRITE (6, *) "Receiver lies outside model (lat,long)= ", irx, irz
-            WRITE (6, *) "TERMINATING PROGRAM!!!!"
-            STOP
-         END IF
          IF (irx .eq. nnx) irx = irx - 1
          IF (irz .eq. nnz) irz = irz - 1
 !
@@ -1169,18 +1149,6 @@ CONTAINS
 !
          ipx = INT((rcx(i) - gox)/dnx) + 1
          ipz = INT((rcz(i) - goz)/dnz) + 1
-         sw = 0
-         IF (ipx .lt. 1 .or. ipx .gt. nnx) sw = 1
-         IF (ipz .lt. 1 .or. ipz .gt. nnz) sw = 1
-         !IF(ipx.lt.1.or.ipx.ge.nnx)sw=1 ! MS change to allow receiver on boundary
-         !IF(ipz.lt.1.or.ipz.ge.nnz)sw=1 ! MS change to allow receiver on boundary
-         IF (sw .eq. 1) then
-            ipx = 90.0 - ipx*180.0/pi
-            ipz = ipz*180.0/pi
-            WRITE (6, *) "Receiver lies outside model (lat,long)= ", ipx, ipz
-            WRITE (6, *) "TERMINATING PROGRAM!!!"
-            STOP
-         END IF
          IF (ipx .eq. nnx) ipx = ipx - 1
          IF (ipz .eq. nnz) ipz = ipz - 1
 !
@@ -1817,16 +1785,6 @@ CONTAINS
 !
          irx = INT((rcx(i) - gox)/dnx) + 1
          irz = INT((rcz(i) - goz)/dnz) + 1
-         sw = 0
-         IF (irx .lt. 1 .or. irx .gt. nnx) sw = 1
-         IF (irz .lt. 1 .or. irz .gt. nnz) sw = 1
-         IF (sw .eq. 1) then
-            irx = 90.0 - irx*180.0/pi
-            irz = irz*180.0/pi
-            WRITE (6, *) "Receiver lies outside model (lat,long)= ", irx, irz
-            WRITE (6, *) "TERMINATING PROGRAM!!!!"
-            STOP
-         END IF
          IF (irx .eq. nnx) irx = irx - 1
          IF (irz .eq. nnz) irz = irz - 1
 !
@@ -2011,18 +1969,6 @@ CONTAINS
 !
          ipx = INT((rcx(i) - gox)/dnx) + 1
          ipz = INT((rcz(i) - goz)/dnz) + 1
-         sw = 0
-         IF (ipx .lt. 1 .or. ipx .gt. nnx) sw = 1
-         IF (ipz .lt. 1 .or. ipz .gt. nnz) sw = 1
-         !IF(ipx.lt.1.or.ipx.ge.nnx)sw=1 ! MS change to allow receiver on boundary
-         !IF(ipz.lt.1.or.ipz.ge.nnz)sw=1 ! MS change to allow receiver on boundary
-         IF (sw .eq. 1) then
-            ipx = 90.0 - ipx*180.0/pi
-            ipz = ipz*180.0/pi
-            WRITE (6, *) "Receiver lies outside model (lat,long)= ", ipx, ipz
-            WRITE (6, *) "TERMINATING PROGRAM!!!"
-            STOP
-         END IF
          IF (ipx .eq. nnx) ipx = ipx - 1
          IF (ipz .eq. nnz) ipz = ipz - 1
 !
@@ -3168,19 +3114,6 @@ CONTAINS
 !
             isx = INT((x - gox)/dnx) + 1
             isz = INT((z - goz)/dnz) + 1
-            sw = 0
-            IF (isx .lt. 1 .or. isx .gt. nnx) sw = 1
-            IF (isz .lt. 1 .or. isz .gt. nnz) sw = 1
-            IF (sw .eq. 1) then
-               ! MS added to debug
-               !write (6, *)" x, gox,dnx,nnx, isx",x,gox,dnx,nnx,isx
-               !write (6, *)" z, goz,dnz,nnz, isz",z,goz,dnz,nnz,isz
-               isx = 90.0 - isx*180.0/pi
-               isz = isz*180.0/pi
-               WRITE (6, *) "2: Source lies outside bounds of model (lat,long)= ", isx, isz
-               WRITE (6, *) "TERMINATING PROGRAM!!!"
-               STOP
-            END IF
             IF (isx .eq. nnx) isx = isx - 1
             IF (isz .eq. nnz) isz = isz - 1
 !
@@ -3631,16 +3564,6 @@ CONTAINS
 !
             isx = INT((x - gox)/dnx) + 1
             isz = INT((z - goz)/dnz) + 1
-            sw = 0
-            IF (isx .lt. 1 .or. isx .gt. nnx) sw = 1
-            IF (isz .lt. 1 .or. isz .gt. nnz) sw = 1
-            IF (sw .eq. 1) then
-               isx = 90.0 - isx*180.0/pi
-               isz = isz*180.0/pi
-               WRITE (6, *) "3: Source lies outside bounds of model (lat,long)= ", isx, isz
-               WRITE (6, *) "TERMINATING PROGRAM!!!"
-               STOP
-            END IF
             IF (isx .eq. nnx) isx = isx - 1
             IF (isz .eq. nnz) isz = isz - 1
 !
