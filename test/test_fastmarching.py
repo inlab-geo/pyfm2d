@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pytest
 from dataclasses import dataclass
@@ -66,14 +67,10 @@ def test_set_solver_options():
     assert wrgf == options.lpaths
 
 
-@pytest.mark.skip(
-    reason="Successfull calling of the function exits the python instance"
-)
 def test_fmmin2d():
-    # Can't properly test this function
-    # because the underlying Fortran subroutine
-    # calls STOP which exits the python instance
+    os.chdir(Path(__file__).parent)
     fmm.fmmin2d()
+    os.chdir(Path(__file__).parent.parent)
 
 
 def test_read_solver_options():

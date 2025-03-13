@@ -3854,7 +3854,6 @@ CONTAINS
          WRITE (6, *) 'Error with DEALLOCATE: PROGRAM fmmin2d: final deallocate'
       END IF
       WRITE (6, *) 'Program fm2dss has finished successfully!'
-      STOP
    END SUBROUTINE fmmin2d
 
 END MODULE FMM
