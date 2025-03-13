@@ -180,9 +180,8 @@ def cleanup(func):
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            print(f"Error in {func.__name__}: {e}\nCleaning up...")
             fmm.deallocate_result_arrays()
-            return None
+            raise e
 
     return wrapper
 
