@@ -32,8 +32,5 @@ jobs:
         run: uv sync --all-extras --dev
   
       - name: Run tests
-        # test_fmmin2d needs to be run from the test directory
-        # for access to the input files
         run: |
-          cd test 
           uv run pytest 

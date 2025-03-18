@@ -5,7 +5,7 @@ from scipy.interpolate import RectBivariateSpline
 from scipy.sparse import csr_matrix, hstack
 import faulthandler
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Callable, Optional
 import concurrent.futures
 from functools import reduce
 import operator
@@ -175,6 +175,18 @@ class WaveTrackerOptions:
         self.tsource: int = 1 if self.ttfield_source >= 0 else 0
 
 
+def cleanup(func):
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            fmm.deallocate_result_arrays()
+            raise e
+
+    return wrapper
+
+
+@cleanup
 def calc_wavefronts(
     v,
     recs,
