@@ -147,3 +147,30 @@ def test_calc_wavefonts_multithreading():
 
     if PLOT:
         display_model(g.get_velocity(), paths=result.paths)
+
+
+def test_calc_wavefonts_multithreading_vs_serial():
+    g = create_velocity_grid_model()
+    recs = get_receivers()
+    srcs = get_sources()
+
+    options = WaveTrackerOptions(times=True, paths=True, frechet=True)
+    result_serial = _calc_wavefronts_process(
+        g.get_velocity(),
+        recs,
+        srcs,
+        options=options,
+    )
+
+    result_parallel = _calc_wavefronts_multithreading(
+        g.get_velocity(),
+        recs,
+        srcs,
+        options=options,
+        nthreads=4,
+    )
+
+    assert np.allclose(result_serial.ttimes, result_parallel.ttimes)
+    for i in range(len(result_serial.paths)):
+        assert np.allclose(result_serial.paths[i], result_parallel.paths[i]), f"Path {i} is not equal"
+    assert np.allclose(result_serial.frechet.toarray(), result_parallel.frechet.toarray())
