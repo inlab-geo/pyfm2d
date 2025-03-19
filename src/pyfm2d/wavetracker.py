@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 from scipy.interpolate import RectBivariateSpline
-from scipy.sparse import csr_matrix, hstack
+from scipy.sparse import csr_matrix, vstack
 import faulthandler
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
@@ -91,7 +91,7 @@ class WaveTrackerResult:
         else:
             ttfield = None
         if self.frechet is not None:
-            frechet = hstack([self.frechet, other.frechet])
+            frechet = vstack([self.frechet, other.frechet])
         else:
             frechet = None
 
