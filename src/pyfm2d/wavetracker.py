@@ -127,7 +127,7 @@ class WaveTrackerOptions:
 
         sourcedicelevel (int): Source discretization level. Number of sub-divisions per cell (default=5, i.e. 1 model cell becomes 5x5 sub-cells)
 
-        sourcegridsize (int): Number of model cells to refine about source at sourcedicelevel (default=10, i.e. 10x10 cells are refines about source)
+        sourcegridsize (int): Number of model cells to refine about source at sourcedicelevel (default=10, i.e. 10x10 cells are refined about source)
 
         earthradius (float): radius of Earth in km, used for spherical to Cartesian transform. Default is 6371.0.
 
