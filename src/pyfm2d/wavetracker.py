@@ -135,7 +135,7 @@ class WaveTrackerOptions:
 
         nbsize (float): Narrow band size (0-1) as fraction of nnx*nnz. Default is 0.5.
 
-        degrees (bool): True if input distances are in degrees. Default is False.
+        cartesian (bool): True if using a Cartesian spatial frame. Default is False.
 
         velocityderiv (bool): Switch to return Frechet derivatives of travel times w.r.t. velocities (True) rather than slownesses (False). Default is False.
 
@@ -154,7 +154,7 @@ class WaveTrackerOptions:
     earthradius: float = 6371.0
     schemeorder: int = 1
     nbsize: float = 0.5
-    degrees: bool = False
+    cartesian: bool = False
     velocityderiv: bool = False
     dicex: int = 8
     dicey: int = 8
@@ -174,6 +174,8 @@ class WaveTrackerOptions:
         # int to calculate travel fields (0=no,1=all)
         self.tsource: int = 1 if self.ttfield_source >= 0 else 0
 
+        # int to activate cartesian mode (y=1,n=0)
+        self.lcartesian: int = 1 if self.cartesian else 0
 
 def cleanup(func):
     def wrapper(*args, **kwargs):
@@ -254,6 +256,7 @@ def _calc_wavefronts_process(
         options.lfrechet,
         options.tsource,
         options.lpaths,
+        options.lcartesian,
     )
 
     fmm.set_sources(srcs[:, 1], srcs[:, 0])  # ordering inherited from fm2dss.f90
@@ -312,8 +315,10 @@ def _calc_wavefronts_multithreading(
 
 
 def collect_results(options: WaveTrackerOptions, velocity):
-    # fmst expects input spatial co-ordinates in degrees and velocities in kms/s so we adjust (unless degrees=True)
-    kms2deg = 1.0 if options.degrees else 180.0 / (options.earthradius * np.pi)
+    # fmst expects input spatial co-ordinates in degrees and velocities in kms/s for spherical reference frame (unless cartesian=True)
+    # if cartesian is True then fmst expects input spatial co-ordinates in kms and velocities in kms/s
+    #kms2deg = 1.0 if options.degrees else 180.0 / (options.earthradius * np.pi)
+    kms2deg = 1.0 
 
     ttimes = None
     raypaths = None
@@ -800,7 +805,6 @@ def generate_surface_points(
 # Plotting routines
 # --------------------------------------------------------------------------------------------
 
-
 def display_model(
     model,
     paths=None,
@@ -812,6 +816,7 @@ def display_model(
     line=1.0,
     cline="k",
     alpha=1.0,
+    points=None,
     wfront=None,
     cwfront="k",
     diced=True,
@@ -820,6 +825,9 @@ def display_model(
     cbarshrink=0.6,
     cbar=True,
     filename=None,
+    reversedepth=False,
+    points_size = 1.0,
+    aspect = None,
     **wkwargs,
 ):
     """
@@ -832,7 +840,8 @@ def display_model(
 
     """
 
-    plt.figure(figsize=figsize)
+    fig = plt.figure(figsize=figsize)
+    
     if cmap is None:
         cmap = plt.cm.RdBu
 
@@ -841,16 +850,29 @@ def display_model(
     plotmodel = model
     if diced:
         plotmodel = create_diced_grid(model, extent=extent, dicex=dicex, dicey=dicey)
-
-    plt.imshow(plotmodel.T, origin="lower", extent=extent, cmap=cmap)
-
+    
+    if(reversedepth):
+        extentr = [extent[0],extent[1],extent[3],extent[2]]
+        plt.imshow(plotmodel.T, origin="upper", extent=extentr, aspect=aspect, cmap=cmap)
+    else:
+        plt.imshow(plotmodel.T, origin="lower", extent=extent, aspect=aspect, cmap=cmap)
+        
     if paths is not None:
         if isinstance(paths, np.ndarray) and paths.ndim == 2:
             if paths.shape[1] == 4:  # we have paths from xrt.tracer so adjust
                 paths = change_paths_format(paths)
 
-        for p in paths:
-            plt.plot(p[:, 0], p[:, 1], cline, lw=line, alpha=alpha)
+        for i in range(len(paths)):
+            p = paths[i]
+            if(type(cline) is list):
+                cl = cline[i]
+            else:
+                cl = cline
+            if(type(line) is list):
+                lw = line[i]
+            else:
+                lw = line
+            plt.plot(p[:, 0], p[:, 1], cl, lw=lw, alpha=alpha)
 
     if clim is not None:
         plt.clim(clim)
@@ -864,11 +886,24 @@ def display_model(
             np.linspace(extent[0], extent[1], nx),
             np.linspace(extent[2], extent[3], ny),
         )
-        plt.contour(X, Y, wfront.T, **wkwargs)  # Negative contours default to dashed.
+        if(False):
+            plt.contour(X, Y, wfront.T[::-1], **wkwargs)  # Negative contours default to dashed.
+        else:
+            plt.contour(X, Y, wfront.T, **wkwargs)  # Negative contours default to dashed.
 
     if wfront is None and cbar:
         plt.colorbar(shrink=cbarshrink)
 
+    if points is not None:
+        plt.plot(points[:, 0], points[:, 1], 'bo',markersize=points_size)
+
+    if(reversedepth):
+        plt.xlim(extent[0],extent[1])
+        plt.ylim(extent[3],extent[2])
+    else:
+        plt.xlim(extent[0],extent[1])
+        plt.ylim(extent[2],extent[3])
+    
     if filename is not None:
         plt.savefig(filename)
 

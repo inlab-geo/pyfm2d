@@ -2494,11 +2494,11 @@ CONTAINS
    
    
    subroutine set_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_,fsrt_, &
-   cfd_, wttf_, wrgf_) bind(c, name="set_solver_options")
+   cfd_, wttf_, wrgf_, cart_) bind(c, name="set_solver_options")
        integer(c_int) gdx_,gdz_,asgr_,sgdl_,sgs_
        real(c_float) earth_,snb_
        integer(c_int) fom_
-       integer fsrt_, cfd_, wttf_, wrgf_
+       integer fsrt_, cfd_, wttf_, wrgf_, cart_
        
        gdx=gdx_
        gdz=gdz_
@@ -2512,14 +2512,15 @@ CONTAINS
     cfd=cfd_
     wttf=wttf_
     wrgf=wrgf_
+    cart=cart_
     end subroutine set_solver_options
 
    subroutine get_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_,fsrt_, &
-   cfd_,wttf_, wrgf_) bind(c, name="get_solver_options")
+   cfd_,wttf_, wrgf_, cart_) bind(c, name="get_solver_options")
        integer(c_int) gdx_,gdz_,asgr_,sgdl_,sgs_
        real(c_float) earth_,snb_
        integer(c_int) fom_
-        integer fsrt_, cfd_, wttf_, wrgf_
+        integer fsrt_, cfd_, wttf_, wrgf_, cart_
        gdx_=gdx
        gdz_=gdz
        asgr_=asgr
@@ -2528,10 +2529,11 @@ CONTAINS
        earth_=earth
        fom_=fom
        snb_=snb
-        fsrt_=fsrt
+       fsrt_=fsrt
     cfd_=cfd
     wttf_=wttf
     wrgf_=wrgf
+    cart_=cart
     end subroutine get_solver_options
 
 
