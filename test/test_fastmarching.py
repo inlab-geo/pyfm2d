@@ -29,6 +29,7 @@ class FMMOptions:
     lfrechet: int = 1
     tfieldsource: int = 0
     lpaths: int = -1
+    lcartesian: int = 0
 
 
 def test_set_solver_options():
@@ -47,9 +48,10 @@ def test_set_solver_options():
         options.lfrechet,
         options.tfieldsource + 1,
         options.lpaths,
+        options.lcartesian,
     )
 
-    gdx, gdz, asgr, sgdl, sgs, earth, fom, snb, fsrt, cfd, wttf, wrgf = (
+    gdx, gdz, asgr, sgdl, sgs, earth, fom, snb, fsrt, cfd, wttf, wrgf, cart = (
         fmm.get_solver_options()
     )
 
@@ -65,6 +67,7 @@ def test_set_solver_options():
     assert cfd == options.lfrechet
     assert wttf == options.tfieldsource + 1
     assert wrgf == options.lpaths
+    assert cart == options.lcartesian
 
 
 def test_fmmin2d():
@@ -75,7 +78,7 @@ def test_fmmin2d():
 
 def test_read_solver_options():
     fmm.read_solver_options(FMINFILE)
-    gdx, gdz, asgr, sgdl, sgs, earth, fom, snb, fsrt, cfd, wttf, wrgf = (
+    gdx, gdz, asgr, sgdl, sgs, earth, fom, snb, fsrt, cfd, wttf, wrgf, cart = (
         fmm.get_solver_options()
     )
 
@@ -235,6 +238,7 @@ def test_track():
         np.int32(options.lfrechet),
         np.int32(options.tfieldsource + 1),
         np.int32(options.lpaths),
+        np.int32(options.lcartesian),
     )
 
     fmm.read_velocity_model(VELMODELFILE)
