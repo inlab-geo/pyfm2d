@@ -40,17 +40,31 @@ def calculate_expected_tt(src, rec):
     diff = (src[:, np.newaxis] - rec).reshape(-1, 2)  # some broadcasting magic
     return np.sqrt(np.sum(diff**2, axis=1)) / HOMOGENOUS_VELOCITY
 
+def convert_kms_2_deg(src,rec,extent):
+    degperkms = 180./(6371.0*np.pi)
+    rec = degperkms*rec
+    src = degperkms*src
+    ext = [i*degperkms for i in extent] # unit box in kms converted to degrees
+    return src,rec,ext
 
 def test__calc_wavefonts_process():
     g = create_velocity_grid_model()
     recs = get_receivers()
     srcs = get_sources()
+    cartesian = False
+    extent = [0., 1., 0., 1.]
+
+    # Check the travel times
+    expected_tt = calculate_expected_tt(srcs, recs)
+
+    srcs,recs,extent = convert_kms_2_deg(srcs,recs,extent) # For Spherical model we should convert the input spatial units to degrees
 
     options = WaveTrackerOptions(times=True, paths=True, frechet=True)
     result = _calc_wavefronts_process(
         g.get_velocity(),
         recs,
         srcs,
+        extent=extent,
         options=options,
     )
 
@@ -58,11 +72,10 @@ def test__calc_wavefonts_process():
     assert result.paths is not None
     assert result.frechet is not None
 
-    # Check the travel times
-    expected_tt = calculate_expected_tt(srcs, recs)
-
     # fmm seems quite inaccurate because of the small grid size
     # and putting float32 everywhere
+    print('expected_tt',expected_tt)
+    print('result.ttimes',result.ttimes)
     assert np.allclose(result.ttimes, expected_tt, atol=1e-2)
 
     if PLOT:
@@ -91,6 +104,7 @@ def test_cleanup():
             options.lfrechet,
             options.tsource,
             options.lpaths,
+            options.lcartesian,
         )
 
         fmm.set_sources(srcs[:, 1], srcs[:, 0])  # ordering inherited from fm2dss.f90
@@ -127,12 +141,19 @@ def test_calc_wavefonts_multithreading():
     g = create_velocity_grid_model()
     recs = get_receivers()
     srcs = np.concatenate([get_sources() for _ in range(4)])
+    extent = [0.,1.,0.,1.]
+
+    # Check the travel times
+    expected_tt = calculate_expected_tt(srcs, recs)
+
+    srcs,recs,extent = convert_kms_2_deg(srcs,recs,extent) # For Spherical model we should convert the input spatial units to degrees
 
     options = WaveTrackerOptions(times=True, paths=True, frechet=True)
     result = _calc_wavefronts_multithreading(
         g.get_velocity(),
         recs,
         srcs,
+        extent=extent,
         options=options,
         nthreads=4,
     )
@@ -141,8 +162,6 @@ def test_calc_wavefonts_multithreading():
     assert result.paths is not None
     assert result.frechet is not None
 
-    # Check the travel times
-    expected_tt = calculate_expected_tt(srcs, recs)
     assert np.allclose(result.ttimes, expected_tt, atol=1e-2)
 
     if PLOT:
@@ -153,12 +172,16 @@ def test_calc_wavefonts_multithreading_vs_serial():
     g = create_velocity_grid_model()
     recs = get_receivers()
     srcs = get_sources()
+    extent = [0.,1.,0.,1.]
+
+    srcs,recs,extent = convert_kms_2_deg(srcs,recs,extent) # For Spherical model we should convert the input spatial units to degrees
 
     options = WaveTrackerOptions(times=True, paths=True, frechet=True)
     result_serial = _calc_wavefronts_process(
         g.get_velocity(),
         recs,
         srcs,
+        extent=extent,
         options=options,
     )
 
@@ -166,6 +189,7 @@ def test_calc_wavefonts_multithreading_vs_serial():
         g.get_velocity(),
         recs,
         srcs,
+        extent=extent,
         options=options,
         nthreads=4,
     )
