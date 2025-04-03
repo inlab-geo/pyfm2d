@@ -1576,7 +1576,7 @@ CONTAINS
 ! dpl = incremental path length of ray
 ! xi,zi = edge of model coordinates
 ! dtx,dtz = components of gradT
-! wrgf = Write out raypaths? (<0=all,0=no,>0=souce id)
+! wrgf = Write out raypaths? (<0=all,0=no,>0=source id)
 ! cfd = calculate Frechet derivatives? (0=no,1=yes)
 ! csid = current source id
 ! fdm = Frechet derivative matrix
@@ -2271,6 +2271,123 @@ CONTAINS
       
       
    END SUBROUTINE gridder2
+
+   SUBROUTINE gridder2_cart()
+      IMPLICIT NONE
+      INTEGER :: i, j, l, m, i1, j1, conx, conz, stx, stz
+      REAL(KIND=i10) :: u, sumi, sumj
+      REAL(KIND=i10), DIMENSION(:, :), ALLOCATABLE :: ui, vi
+!
+! u = independent parameter for b-spline
+! ui,vi = bspline basis functions
+! conx,conz = variables for edge of B-spline grid
+! stx,stz = counters for veln grid points
+! sumi,sumj = summation variables for computing b-spline
+!
+! Open the grid file and read in the velocity grid.
+!
+!      OPEN (UNIT=10, FILE=grid, STATUS='old')
+!      READ (10, *) nvx, nvz
+!      READ (10, *) goxd, gozd
+!      READ (10, *) dvxd, dvzd
+!      ALLOCATE (velv(0:nvz + 1, 0:nvx + 1), STAT=checkstat)
+!      IF (checkstat > 0) THEN
+!         WRITE (6, *) 'Error with ALLOCATE: SUBROUTINE gridder: REAL velv'
+!      END IF
+!      DO i = 0, nvz + 1
+!         DO j = 0, nvx + 1
+!            READ (10, *) velv(i, j)
+!         END DO
+!      END DO
+!      CLOSE (10)
+!
+! Convert from degrees to radians
+!
+
+      !dvx = dvxd*pi/180.0
+      !dvz = dvzd*pi/180.0
+      !gox = (90.0 - goxd)*pi/180.0
+      !goz = gozd*pi/180.0
+      dvx = dvxd
+      dvz = dvzd
+      gox = goxd
+      goz = gozd
+      
+
+!
+! Compute corresponding values for propagation grid.
+!
+
+      nnx = (nvx - 1)*gdx + 1
+      nnz = (nvz - 1)*gdz + 1
+      dnx = dvx/gdx
+      dnz = dvz/gdz
+      dnxd = dvxd/gdx
+      dnzd = dvzd/gdz
+      ALLOCATE (veln(nnz, nnx), STAT=checkstat)
+      IF (checkstat > 0) THEN
+         WRITE (6, *) 'Error with ALLOCATE: SUBROUTINE gridder2: REAL veln'
+      END IF
+!
+! Now dice up the grid
+!
+
+      ALLOCATE (ui(gdx + 1, 4), STAT=checkstat)
+      IF (checkstat > 0) THEN
+         WRITE (6, *) 'Error with ALLOCATE: Subroutine gridder2: REAL ui'
+      END IF
+      DO i = 1, gdx + 1
+         u = gdx
+         u = (i - 1)/u
+         ui(i, 1) = (1.0 - u)**3/6.0
+         ui(i, 2) = (4.0 - 6.0*u**2 + 3.0*u**3)/6.0
+         ui(i, 3) = (1.0 + 3.0*u + 3.0*u**2 - 3.0*u**3)/6.0
+         ui(i, 4) = u**3/6.0
+      END DO
+      
+     
+      ALLOCATE (vi(gdz + 1, 4), STAT=checkstat)
+      IF (checkstat > 0) THEN
+         WRITE (6, *) 'Error with ALLOCATE: Subroutine gridder2: REAL vi'
+      END IF
+      DO i = 1, gdz + 1
+         u = gdz
+         u = (i - 1)/u
+         vi(i, 1) = (1.0 - u)**3/6.0
+         vi(i, 2) = (4.0 - 6.0*u**2 + 3.0*u**3)/6.0
+         vi(i, 3) = (1.0 + 3.0*u + 3.0*u**2 - 3.0*u**3)/6.0
+         vi(i, 4) = u**3/6.0
+      END DO
+      DO i = 1, nvz - 1
+         conz = gdz
+         IF (i == nvz - 1) conz = gdz + 1
+         DO j = 1, nvx - 1
+            conx = gdx
+            IF (j == nvx - 1) conx = gdx + 1
+            DO l = 1, conz
+               stz = gdz*(i - 1) + l
+               DO m = 1, conx
+                  stx = gdx*(j - 1) + m
+                  sumi = 0.0
+                  DO i1 = 1, 4
+                     sumj = 0.0
+                     DO j1 = 1, 4
+                        sumj = sumj + ui(m, j1)*velv(i - 2 + i1, j - 2 + j1)
+                     END DO
+                     sumi = sumi + vi(l, i1)*sumj
+                  END DO
+                  veln(stz, stx) = sumi
+               END DO
+            END DO
+         END DO
+      END DO
+      DEALLOCATE (ui, vi, STAT=checkstat)
+      IF (checkstat > 0) THEN
+         WRITE (6, *) 'Error with DEALLOCATE: SUBROUTINE gridder: REAL ui,vi'
+      END IF
+      
+      
+   END SUBROUTINE gridder2_cart
 
    SUBROUTINE srtimes2(scx, scz, csid)
       USE globalp
@@ -3589,6 +3706,8 @@ CONTAINS
             DO j = 1, nrp
                rayx = (pi/2 - rgx(j))*180.0/pi
                rayz = rgz(j)*180.0/pi
+               rayx = rgx(j)
+               rayz = rgz(j) ! Are rgx and rgz still in radians here?
             !! WRITE (40, *) rayx, rayz
 !            print rayx,rayz
             paths(npaths,j,1)=rayx
@@ -3790,7 +3909,11 @@ CONTAINS
          end do
       end do
       
-      call gridder2()
+      if (cart .eq. 1) then
+         call gridder2_cart()
+      else
+         call gridder2()
+      end if
    
    end subroutine set_velocity_model
 
@@ -3864,10 +3987,18 @@ CONTAINS
       end if
       allocate (scx(nsrc), scz(nsrc))
 
-      do i = 1, nsrc
-         scx(i) = (90.0 - scx_(i))*pi/180.0
-         scz(i) = scz_(i)*pi/180.0
-      end do
+      if (cart .eq. 1) then
+         do i = 1, nsrc
+            scx(i) = scx_(i)
+            scz(i) = scz_(i)
+         end do
+      else
+         do i = 1, nsrc
+            scx(i) = (90.0 - scx_(i))*pi/180.0
+            scz(i) = scz_(i)*pi/180.0
+         end do
+      end if
+
    end subroutine set_sources
 
    subroutine get_number_of_sources(nsrc_) bind(c, name="get_number_of_sources")
@@ -3880,10 +4011,17 @@ CONTAINS
       real(c_float), intent(inout) :: scx_(nsrc_), scz_(nsrc_)
       integer i
       nsrc_ = nsrc
-      do i = 1, nsrc
-         scx_(i) = 90 - scx(i)/pi*180.0
-         scz_(i) = scz(i)/pi*180.0
-      end do
+      if (cart .eq. 1) then
+         do i = 1, nsrc
+            scx_(i) = scx(i)
+            scz_(i) = scz(i)
+         end do
+      else
+         do i = 1, nsrc
+            scx_(i) = 90 - scx(i)/pi*180.0
+            scz_(i) = scz(i)/pi*180.0
+         end do
+      end if
    end subroutine get_sources
 
    subroutine read_receivers(fn_ptr, fn_ptr_length) bind(c, name="read_receivers")
@@ -3917,10 +4055,17 @@ CONTAINS
          deallocate (rcz)
       end if
       allocate (rcx(nrc), rcz(nrc))
-      do i = 1, nrc
-         rcx(i) = (90.0 - rcx_(i))*pi/180.0
-         rcz(i) = rcz_(i)*pi/180.0
-      end do
+      if (cart .eq. 1) then
+         do i = 1, nrc
+            rcx(i) = rcx_(i)
+            rcz(i) = rcz_(i)
+         end do
+      else
+         do i = 1, nrc
+            rcx(i) = (90.0 - rcx_(i))*pi/180.0
+            rcz(i) = rcz_(i)*pi/180.0
+         end do
+      end if
    end subroutine set_receivers
 
    subroutine get_number_of_receivers(nrc_) bind(c, name="get_number_of_receivers")
@@ -3933,10 +4078,17 @@ CONTAINS
       real(c_float), intent(inout) :: rcx_(nrc_), rcz_(nrc_)
       integer i
       nrc_ = nrc
-      do i = 1, nrc
-         rcx_(i) = 90 - rcx(i)/pi*180.0
-         rcz_(i) = rcz(i)/pi*180.0
-      end do
+      if (cart .eq. 1) then
+         do i = 1, nrc
+            rcx_(i) = rcx(i)
+            rcz_(i) = rcz(i)
+         end do
+      else
+         do i = 1, nrc
+            rcx_(i) = 90 - rcx(i)/pi*180.0
+            rcz_(i) = rcz(i)/pi*180.0
+         end do
+      end if
    end subroutine get_receivers
 
    subroutine read_source_receiver_associations(fn_ptr, &

@@ -9,6 +9,7 @@ from typing import Any, Callable, Optional
 import concurrent.futures
 from functools import reduce
 import operator
+import sys
 
 from . import fastmarching as fmm
 from . import bases as base
@@ -269,7 +270,13 @@ def _calc_wavefronts_process(
 
     vc = _build_velocity_grid(v)
 
-    fmm.set_velocity_model(nvy, nvx, extent[3], extent[0], dlat, dlong, vc)
+    if (options.lcartesian == 1): # grid in regular order if Cartesian mode (co-ords are in kms)
+        fmm.set_velocity_model(nvy, nvx, extent[2], extent[0], dlat, dlong, vc)
+
+    else:                         # y-grid (Lat) required in reversed order if Spherical mode (co-ords are in degs)
+
+        vc = vc[:, ::-1] # reverse direction of velocity model in latitude direction for Spherical model
+        fmm.set_velocity_model(nvy, nvx, extent[3], extent[0], dlat, dlong, vc)
 
     # set up time calculation between all sources and receivers
     associations = np.ones((recs.shape[0], srcs.shape[0]))
@@ -397,7 +404,6 @@ def _build_velocity_grid(v):  # maybe this could be split up a bit?
         v[-1, 0],
         v[-1, -1],
     )
-    vc = vc[:, ::-1]
 
     return vc
 
