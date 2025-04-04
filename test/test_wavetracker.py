@@ -57,9 +57,9 @@ def test__calc_wavefonts_process():
     # Check the travel times
     expected_tt = calculate_expected_tt(srcs, recs)
 
-    srcs,recs,extent = convert_kms_2_deg(srcs,recs,extent) # For Spherical model we should convert the input spatial units to degrees
+    #srcs,recs,extent = convert_kms_2_deg(srcs,recs,extent) # For Spherical model we should convert the input spatial units to degrees
 
-    options = WaveTrackerOptions(times=True, paths=True, frechet=True)
+    options = WaveTrackerOptions(times=True, paths=True, frechet=True, cartesian=True)
     result = _calc_wavefronts_process(
         g.get_velocity(),
         recs,
