@@ -122,7 +122,7 @@ class WaveTrackerOptions:
 
         frechet (bool): Whether to compute Frechet derivatives. Default is False.
 
-        ttfield_source (int): Source index for to compute travel time field. If <0 then no fields are computed. Default is -1.
+        ttfield_source (int): Source index for computation of travel time field. If <0 then no fields are computed. Default is -1.
 
         sourcegridrefine (bool): Apply sourcegrid refinement. Default is True.
 
@@ -324,8 +324,6 @@ def _calc_wavefronts_multithreading(
 def collect_results(options: WaveTrackerOptions, velocity):
     # fmst expects input spatial co-ordinates in degrees and velocities in kms/s for spherical reference frame (unless cartesian=True)
     # if cartesian is True then fmst expects input spatial co-ordinates in kms and velocities in kms/s
-    #kms2deg = 1.0 if options.degrees else 180.0 / (options.earthradius * np.pi)
-    kms2deg = 1.0 
 
     ttimes = None
     raypaths = None
@@ -333,25 +331,24 @@ def collect_results(options: WaveTrackerOptions, velocity):
     tfield = None
 
     if options.times:
-        ttimes = fmm.get_traveltimes().copy() * kms2deg
+        ttimes = fmm.get_traveltimes().copy()
 
     if options.paths:
         raypaths = fmm.get_raypaths().copy()
 
     if options.frechet:
-        frechetvals = _get_frechet_derivatives(kms2deg, options.velocityderiv, velocity)
+        frechetvals = _get_frechet_derivatives(options.cartesian, options.velocityderiv, velocity)
 
     if options.ttfield_source >= 0:
-        tfield = _get_tfield(kms2deg, options.ttfield_source)
+        tfield = _get_tfield(options.cartesian, options.ttfield_source)
 
     return WaveTrackerResult(ttimes, raypaths, tfield, frechetvals)
 
 
-def _get_frechet_derivatives(degrees_conversion, velocityderiv, velocity):
+def _get_frechet_derivatives(cartesian, velocityderiv, velocity):
     frechetvals = fmm.get_frechet_derivatives()
-    frechetvals *= degrees_conversion
 
-    # the frechet matrix returned in in csr format and has two layers of cushion nodes surrounding the (nx,ny) grid
+    # the frechet matrix returned in csr format and has two layers of cushion nodes surrounding the (nx,ny) grid
     F = frechetvals.toarray()  # unpack csr format
     nrays = F.shape[0]  # number of raypaths
     nx, ny = velocity.shape  # shape of non-cushion velcoity model
@@ -360,8 +357,9 @@ def _get_frechet_derivatives(degrees_conversion, velocityderiv, velocity):
     noncushion = _build_grid_noncushion_map(nx, ny)
     F = F[:, noncushion.flatten()].reshape((nrays, nx, ny))
 
-    # reverse y order, because it seems to be returned in reverse order (cf. ttfield array)
-    F = F[:, :, ::-1]
+    # For Spherical mode: reverse y order, for consistency (cf. ttfield array)
+    if (not cartesian):
+        F = F[:, :, ::-1]
 
     # reformat as a sparse CSR matrix
     frechetvals = csr_matrix(F.reshape((nrays, nx * ny)))
@@ -374,14 +372,14 @@ def _get_frechet_derivatives(degrees_conversion, velocityderiv, velocity):
     return frechetvals.copy()
 
 
-def _get_tfield(degrees_conversion, source):
+def _get_tfield(cartesian, source):
     tfieldvals = fmm.get_traveltime_fields()
-    tfieldvals *= degrees_conversion
 
     tfield = tfieldvals[source].copy()
 
     # flip y axis of travel time field as it is provided in reverse ordered.
-    tfield = tfield[:, ::-1]
+    if (not cartesian): 
+        tfield = tfield[:, ::-1]
     return tfield
 
 
