@@ -7,7 +7,7 @@ _2D ray tracing and wavefront tracking_
 
 
 This repository contains ctypes based Python wrappers for the program `fm2dss.F90` by Nick Rawlinson for 2D ray tracing and wavefront tracking using the Fast Marching method in a 2D seismic velocity or slowness model.
-
+The python version containts extentions for parallelism and a Cartesian mode.
 
 ## Installation
 
@@ -71,11 +71,11 @@ wt.calc_wavefronts(g.get_velocity(),recs,srcs)
 ```
 More detailed examples of its usage can be found in
 
-[`examples/FMM_demo_borehole.ipynb`](./examples/FMM_demo_borehole.ipynb) - Cross borehole example
+[`examples/FMM_demo_borehole.ipynb`](./examples/FMM_demo_borehole.ipynb) - Cross borehole example using cartesian mode.
 
-[`examples/FMM_demo Surface Wave.ipynb`](./examples/FMM_demo%20Surface%20Wave.ipynb) - Surface waves across Australia
+[`examples/FMM_demo Surface Wave.ipynb`](./examples/FMM_demo%20Surface%20Wave.ipynb) - Surface waves across Australia in default spherical mode.
 
-[`examples/FMM_demo checkerboard.ipynb`](./examples/FMM_demo%20checkerboard.ipynb) - 2D checkerboard model.
+[`examples/FMM_demo checkerboard.ipynb`](./examples/FMM_demo%20checkerboard.ipynb) - 2D checkerboard model. Uses both cartesian and spherical modes.
 
 ## Gallery
 
