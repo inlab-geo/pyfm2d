@@ -7,7 +7,7 @@ _2D ray tracing and wavefront tracking_
 
 
 This repository contains ctypes based Python wrappers for the program `fm2dss.F90` by Nick Rawlinson for 2D ray tracing and wavefront tracking using the Fast Marching method in a 2D seismic velocity or slowness model.
-The python version containts extentions for parallelism and a Cartesian mode with spatial inputs in kms (x,y) or (x,z). The default is spherical mode with inputs in degrees (lat, long). 
+The python version has extentions for parallelism and a Cartesian mode with spatial inputs in kms (x,y) or (x,z). The default is spherical mode with inputs in degrees (lat, long). 
 
 ## Installation
 
@@ -77,6 +77,8 @@ More detailed examples of its usage can be found in
 
 [`examples/FMM_demo checkerboard.ipynb`](./examples/FMM_demo%20checkerboard.ipynb) - 2D checkerboard model. Uses both cartesian and spherical modes.
 
+[`examples/Benchmark_1D-ray_theory.ipynb`](./examples/Benchmark_1D-ray_theory.ipynb) - Comparison of FMM results with analytical results in a 1D velocity model to test accuracy. Uses both cartesian and spherical modes.
+
 ## Gallery
 
 A gallery of images produced by the plot class showing examples of raypaths and wavefront with severe ray bending can be found in directory [gallery](./gallery)
@@ -87,7 +89,7 @@ The classes above call ctype wrapper functions that allow communication with the
 The idea is to refactor the original Fortran main into a subroutine inside a module that contains all
 variables used by main as global variables. That is they are moved out of the subroutine.
 As a consequence they have global scope and exist even when the main, that
-is now a subroutine, is terminated. Thus they are accessible from Python via to be written
+is now a subroutine, is terminated. Thus they are accessible from Python via
 get and set functions.
 
 ## Tests
@@ -96,7 +98,7 @@ Running `test_fmmin2d.py` from within the test directory will run the orignal pr
 turned into a subroutine that can be called from python like the fmm executable it reads
 the files from disk
 
-Running `test_run.py` illustrates how the reorganised/expanded `fmm2dss.f90` now
+Running `test_fastmarching.py` illustrates how the reorganised/expanded `fmm2dss.f90` now
 allows in python to read the sources from disk by providing a file name, set them
 from python and get them back from an fmm instance.
 
