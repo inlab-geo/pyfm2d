@@ -9,6 +9,7 @@ from typing import Any, Callable, Optional
 import concurrent.futures
 from functools import reduce
 import operator
+import sys
 
 from . import fastmarching as fmm
 from . import bases as base
@@ -121,7 +122,7 @@ class WaveTrackerOptions:
 
         frechet (bool): Whether to compute Frechet derivatives. Default is False.
 
-        ttfield_source (int): Source index for to compute travel time field. If <0 then no fields are computed. Default is -1.
+        ttfield_source (int): Source index for computation of travel time field. If <0 then no fields are computed. Default is -1.
 
         sourcegridrefine (bool): Apply sourcegrid refinement. Default is True.
 
@@ -135,7 +136,7 @@ class WaveTrackerOptions:
 
         nbsize (float): Narrow band size (0-1) as fraction of nnx*nnz. Default is 0.5.
 
-        degrees (bool): True if input distances are in degrees. Default is False.
+        cartesian (bool): True if using a Cartesian spatial frame. Default is False.
 
         velocityderiv (bool): Switch to return Frechet derivatives of travel times w.r.t. velocities (True) rather than slownesses (False). Default is False.
 
@@ -154,7 +155,7 @@ class WaveTrackerOptions:
     earthradius: float = 6371.0
     schemeorder: int = 1
     nbsize: float = 0.5
-    degrees: bool = False
+    cartesian: bool = False
     velocityderiv: bool = False
     dicex: int = 8
     dicey: int = 8
@@ -174,6 +175,8 @@ class WaveTrackerOptions:
         # int to calculate travel fields (0=no,1=all)
         self.tsource: int = 1 if self.ttfield_source >= 0 else 0
 
+        # int to activate cartesian mode (y=1,n=0)
+        self.lcartesian: int = 1 if self.cartesian else 0
 
 def cleanup(func):
     def wrapper(*args, **kwargs):
@@ -254,6 +257,7 @@ def _calc_wavefronts_process(
         options.lfrechet,
         options.tsource,
         options.lpaths,
+        options.lcartesian,
     )
 
     fmm.set_sources(srcs[:, 1], srcs[:, 0])  # ordering inherited from fm2dss.f90
@@ -266,7 +270,13 @@ def _calc_wavefronts_process(
 
     vc = _build_velocity_grid(v)
 
-    fmm.set_velocity_model(nvy, nvx, extent[3], extent[0], dlat, dlong, vc)
+    if (options.lcartesian == 1): # grid in regular order if Cartesian mode (co-ords are in kms)
+        fmm.set_velocity_model(nvy, nvx, extent[2], extent[0], dlat, dlong, vc)
+
+    else:                         # y-grid (Lat) required in reversed order if Spherical mode (co-ords are in degs)
+
+        vc = vc[:, ::-1] # reverse direction of velocity model in latitude direction for Spherical model
+        fmm.set_velocity_model(nvy, nvx, extent[3], extent[0], dlat, dlong, vc)
 
     # set up time calculation between all sources and receivers
     associations = np.ones((recs.shape[0], srcs.shape[0]))
@@ -312,8 +322,8 @@ def _calc_wavefronts_multithreading(
 
 
 def collect_results(options: WaveTrackerOptions, velocity):
-    # fmst expects input spatial co-ordinates in degrees and velocities in kms/s so we adjust (unless degrees=True)
-    kms2deg = 1.0 if options.degrees else 180.0 / (options.earthradius * np.pi)
+    # fmst expects input spatial co-ordinates in degrees and velocities in kms/s for spherical reference frame (unless cartesian=True)
+    # if cartesian is True then fmst expects input spatial co-ordinates in kms and velocities in kms/s
 
     ttimes = None
     raypaths = None
@@ -321,25 +331,24 @@ def collect_results(options: WaveTrackerOptions, velocity):
     tfield = None
 
     if options.times:
-        ttimes = fmm.get_traveltimes().copy() * kms2deg
+        ttimes = fmm.get_traveltimes().copy()
 
     if options.paths:
         raypaths = fmm.get_raypaths().copy()
 
     if options.frechet:
-        frechetvals = _get_frechet_derivatives(kms2deg, options.velocityderiv, velocity)
+        frechetvals = _get_frechet_derivatives(options.cartesian, options.velocityderiv, velocity)
 
     if options.ttfield_source >= 0:
-        tfield = _get_tfield(kms2deg, options.ttfield_source)
+        tfield = _get_tfield(options.cartesian, options.ttfield_source)
 
     return WaveTrackerResult(ttimes, raypaths, tfield, frechetvals)
 
 
-def _get_frechet_derivatives(degrees_conversion, velocityderiv, velocity):
+def _get_frechet_derivatives(cartesian, velocityderiv, velocity):
     frechetvals = fmm.get_frechet_derivatives()
-    frechetvals *= degrees_conversion
 
-    # the frechet matrix returned in in csr format and has two layers of cushion nodes surrounding the (nx,ny) grid
+    # the frechet matrix returned in csr format and has two layers of cushion nodes surrounding the (nx,ny) grid
     F = frechetvals.toarray()  # unpack csr format
     nrays = F.shape[0]  # number of raypaths
     nx, ny = velocity.shape  # shape of non-cushion velcoity model
@@ -348,8 +357,9 @@ def _get_frechet_derivatives(degrees_conversion, velocityderiv, velocity):
     noncushion = _build_grid_noncushion_map(nx, ny)
     F = F[:, noncushion.flatten()].reshape((nrays, nx, ny))
 
-    # reverse y order, because it seems to be returned in reverse order (cf. ttfield array)
-    F = F[:, :, ::-1]
+    # For Spherical mode: reverse y order, for consistency (cf. ttfield array)
+    if (not cartesian):
+        F = F[:, :, ::-1]
 
     # reformat as a sparse CSR matrix
     frechetvals = csr_matrix(F.reshape((nrays, nx * ny)))
@@ -362,14 +372,14 @@ def _get_frechet_derivatives(degrees_conversion, velocityderiv, velocity):
     return frechetvals.copy()
 
 
-def _get_tfield(degrees_conversion, source):
+def _get_tfield(cartesian, source):
     tfieldvals = fmm.get_traveltime_fields()
-    tfieldvals *= degrees_conversion
 
     tfield = tfieldvals[source].copy()
 
     # flip y axis of travel time field as it is provided in reverse ordered.
-    tfield = tfield[:, ::-1]
+    if (not cartesian): 
+        tfield = tfield[:, ::-1]
     return tfield
 
 
@@ -392,7 +402,6 @@ def _build_velocity_grid(v):  # maybe this could be split up a bit?
         v[-1, 0],
         v[-1, -1],
     )
-    vc = vc[:, ::-1]
 
     return vc
 
@@ -800,7 +809,6 @@ def generate_surface_points(
 # Plotting routines
 # --------------------------------------------------------------------------------------------
 
-
 def display_model(
     model,
     paths=None,
@@ -812,6 +820,7 @@ def display_model(
     line=1.0,
     cline="k",
     alpha=1.0,
+    points=None,
     wfront=None,
     cwfront="k",
     diced=True,
@@ -820,6 +829,9 @@ def display_model(
     cbarshrink=0.6,
     cbar=True,
     filename=None,
+    reversedepth=False,
+    points_size = 1.0,
+    aspect = None,
     **wkwargs,
 ):
     """
@@ -832,7 +844,8 @@ def display_model(
 
     """
 
-    plt.figure(figsize=figsize)
+    fig = plt.figure(figsize=figsize)
+    
     if cmap is None:
         cmap = plt.cm.RdBu
 
@@ -841,16 +854,29 @@ def display_model(
     plotmodel = model
     if diced:
         plotmodel = create_diced_grid(model, extent=extent, dicex=dicex, dicey=dicey)
-
-    plt.imshow(plotmodel.T, origin="lower", extent=extent, cmap=cmap)
-
+    
+    if(reversedepth):
+        extentr = [extent[0],extent[1],extent[3],extent[2]]
+        plt.imshow(plotmodel.T, origin="upper", extent=extentr, aspect=aspect, cmap=cmap)
+    else:
+        plt.imshow(plotmodel.T, origin="lower", extent=extent, aspect=aspect, cmap=cmap)
+        
     if paths is not None:
         if isinstance(paths, np.ndarray) and paths.ndim == 2:
             if paths.shape[1] == 4:  # we have paths from xrt.tracer so adjust
                 paths = change_paths_format(paths)
 
-        for p in paths:
-            plt.plot(p[:, 0], p[:, 1], cline, lw=line, alpha=alpha)
+        for i in range(len(paths)):
+            p = paths[i]
+            if(type(cline) is list):
+                cl = cline[i]
+            else:
+                cl = cline
+            if(type(line) is list):
+                lw = line[i]
+            else:
+                lw = line
+            plt.plot(p[:, 0], p[:, 1], cl, lw=lw, alpha=alpha)
 
     if clim is not None:
         plt.clim(clim)
@@ -864,11 +890,24 @@ def display_model(
             np.linspace(extent[0], extent[1], nx),
             np.linspace(extent[2], extent[3], ny),
         )
-        plt.contour(X, Y, wfront.T, **wkwargs)  # Negative contours default to dashed.
+        if(False):
+            plt.contour(X, Y, wfront.T[::-1], **wkwargs)  # Negative contours default to dashed.
+        else:
+            plt.contour(X, Y, wfront.T, **wkwargs)  # Negative contours default to dashed.
 
     if wfront is None and cbar:
         plt.colorbar(shrink=cbarshrink)
 
+    if points is not None:
+        plt.plot(points[:, 0], points[:, 1], 'bo',markersize=points_size)
+
+    if(reversedepth):
+        plt.xlim(extent[0],extent[1])
+        plt.ylim(extent[3],extent[2])
+    else:
+        plt.xlim(extent[0],extent[1])
+        plt.ylim(extent[2],extent[3])
+    
     if filename is not None:
         plt.savefig(filename)
 

@@ -24,7 +24,7 @@ def read_solver_options(fn_):
 
 
 def set_solver_options(
-    gdx, gdz, asgr, sgdl, sgs, earth, fom, snb, fsrt, cfd, wttf, wrgf
+    gdx, gdz, asgr, sgdl, sgs, earth, fom, snb, fsrt, cfd, wttf, wrgf, cart,
 ):
     # Not sure if the np.int32 and np.float32 are necessary
     # e.g. ctypes.c_int is an alias for ctypes.c_long anyway on 64-bit systems
@@ -44,6 +44,7 @@ def set_solver_options(
     cfd_ = ctypes.c_int(np.int32(cfd))
     wttf_ = ctypes.c_int(np.int32(wttf))
     wrgf_ = ctypes.c_int(np.int32(wrgf))
+    cart_ = ctypes.c_int(np.int32(cart))
 
     libfm2d.set_solver_options(
         ctypes.byref(gdx_),
@@ -58,6 +59,7 @@ def set_solver_options(
         ctypes.byref(cfd_),
         ctypes.byref(wttf_),
         ctypes.byref(wrgf_),
+        ctypes.byref(cart_),
     )
 
 
@@ -75,6 +77,7 @@ def get_solver_options():
     cfd_ = ctypes.c_int(-99)
     wttf_ = ctypes.c_int(-99)
     wrgf_ = ctypes.c_int(-99)
+    cart_ = ctypes.c_int(-99)
 
     libfm2d.get_solver_options(
         ctypes.byref(gdx_),
@@ -89,6 +92,7 @@ def get_solver_options():
         ctypes.byref(cfd_),
         ctypes.byref(wttf_),
         ctypes.byref(wrgf_),
+        ctypes.byref(cart_),
     )
 
     gdx = gdx_.value
@@ -104,8 +108,9 @@ def get_solver_options():
     cfd = cfd_.value
     wttf = wttf_.value
     wrgf = wrgf_.value
+    cart = cart_.value
 
-    return gdx, gdz, asgr, sgdl, sgs, earth, fom, snb, fsrt, cfd, wttf, wrgf
+    return gdx, gdz, asgr, sgdl, sgs, earth, fom, snb, fsrt, cfd, wttf, wrgf, cart
 
 
 def read_sources(fn_):
