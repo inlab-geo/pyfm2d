@@ -2640,7 +2640,11 @@ CONTAINS
       INTEGER :: ivx, ivz, ivxo, ivzo, nhp, maxrp
       INTEGER :: ivxt, ivzt, ipxt, ipzt, isum, igref
       INTEGER, DIMENSION(4) :: chp
-      REAL(KIND=i5), PARAMETER :: ftol = 1.0e-6
+      !REAL(KIND=i5), PARAMETER :: ftol = 1.0e-6
+      ! Tolerance on derivative of travel time w.r.t. velocity was too large when model ~30 m and velocity ~2000 m/s, which occur
+      ! in Cartesian borehole case with velocity in m/s
+      ! This should be a input variable rather than hardwired here
+      REAL(KIND=i5), PARAMETER :: ftol = 1.0e-10 ! MS: increase default precision on frechet derivative amplitude 
       REAL(KIND=i5) :: rayx, rayz
       REAL(KIND=i10) :: dpl, rd1, rd2, xi, zi, vel, velo
       REAL(KIND=i10) :: v, w, rigz, rigx, dinc, scx, scz
@@ -3198,7 +3202,11 @@ CONTAINS
       INTEGER :: ivx, ivz, ivxo, ivzo, nhp, maxrp
       INTEGER :: ivxt, ivzt, ipxt, ipzt, isum, igref
       INTEGER, DIMENSION(4) :: chp
-      REAL(KIND=i5), PARAMETER :: ftol = 1.0e-6
+      !REAL(KIND=i5), PARAMETER :: ftol = 1.0e-6
+      ! Tolerance on derivative of travel time w.r.t. velocity was too large when model ~30 m and velocity ~2000 m/s, which occur
+      ! in Cartesian borehole case with velocity in m/s
+      ! This should be a input variable rather than hardwired here
+      REAL(KIND=i5), PARAMETER :: ftol = 1.0e-10 ! MS: increase default precision on frechet derivative amplitude 
       REAL(KIND=i5) :: rayx, rayz
       REAL(KIND=i10) :: dpl, rd1, rd2, xi, zi, vel, velo
       REAL(KIND=i10) :: v, w, rigz, rigx, dinc, scx, scz

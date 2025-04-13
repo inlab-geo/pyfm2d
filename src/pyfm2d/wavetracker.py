@@ -364,8 +364,7 @@ def _get_frechet_derivatives(cartesian, velocityderiv, velocity):
     # reformat as a sparse CSR matrix
     frechetvals = csr_matrix(F.reshape((nrays, nx * ny)))
 
-    if not velocityderiv:
-        # adjust derivatives to be of velocites rather than slownesses (default)
+    if not velocityderiv: # change derivatives to slowness (default), otherwise stay as velocity.
         x2 = -(velocity * velocity).reshape(-1)
         frechetvals = frechetvals.multiply(x2)
 
