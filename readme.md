@@ -7,7 +7,8 @@ _2D ray tracing and wavefront tracking_
 
 
 This repository contains ctypes based Python wrappers for the program `fm2dss.F90` by Nick Rawlinson for 2D ray tracing and wavefront tracking using the Fast Marching method in a 2D seismic velocity or slowness model.
-The python version has extentions for parallelism and a Cartesian mode with spatial inputs in kms (x,y) or (x,z). The default is spherical mode with inputs in degrees (lat, long). 
+The python version has extentions for parallelism and a Cartesian mode. The default is spherical mode with inputs in degrees (lat, long). In Cartesian mode spatial inputs and velocities can be in in kms or metres (x,z). 
+In either case options exist for calculation of Frechet derivatives of travel times with respect to slownesses (default) or velocities in each pixel.
 
 ## Installation
 
