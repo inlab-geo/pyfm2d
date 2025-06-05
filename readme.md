@@ -110,6 +110,8 @@ Running `test_wavetracker.py` illustrates how the wavetracker interface class ut
 
 ## Citations and Acknowledgments
 
+> *Rawlinson, N., and Sambridge, M., 2004. "Wave front evolution in strongly heterogeneous layered media using the fast marching method", Geophys. J. Int., 156, 631-647, doi:10.1111/j.1365-246X.2004.02153.x, 24th January 2004.
+> 
 > *Rawlinson, N., de Kool, M. and Sambridge, M., 2006. "Seismic wavefront tracking in 3-D heterogeneous media: applications with multiple data classes", Explor. Geophys., 37, 322-330.*
 
 > *de Kool, M., Rawlinson, N. and Sambridge, M. 2006. "A practical grid based method for tracking multiple refraction and reflection phases in 3D heterogeneous media", Geophys. J. Int., 167, 253-270.*
