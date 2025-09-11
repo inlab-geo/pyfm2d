@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
-from pyfm2d import WaveTrackerOptions, display_model, BasisModel
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from pyfm2d import WaveTrackerOptions, display_model, BasisModel, calc_wavefronts
 from pyfm2d.wavetracker import (
     _calc_wavefronts_process,
     _calc_wavefronts_multithreading,
@@ -166,6 +167,104 @@ def test_calc_wavefonts_multithreading():
 
     if PLOT:
         display_model(g.get_velocity(), paths=result.paths)
+
+
+def test_user_provided_threadpool_executor():
+    """Test calc_wavefronts with user-provided ThreadPoolExecutor"""
+    g = create_velocity_grid_model()
+    recs = get_receivers()
+    srcs = get_sources()
+    extent = [0., 1., 0., 1.]
+    
+    srcs, recs, extent = convert_kms_2_deg(srcs, recs, extent)
+    
+    options = WaveTrackerOptions(times=True, paths=True, frechet=True)
+    
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        result = calc_wavefronts(
+            g.get_velocity(),
+            recs,
+            srcs,
+            pool=pool,
+            extent=extent,
+            options=options,
+        )
+    
+    assert result.ttimes is not None
+    assert result.paths is not None
+    assert result.frechet is not None
+    
+    expected_tt = calculate_expected_tt(srcs, recs)
+    assert np.allclose(result.ttimes, expected_tt, atol=1e-2)
+
+
+def test_user_provided_processpool_executor():
+    """Test calc_wavefronts with user-provided ProcessPoolExecutor"""
+    g = create_velocity_grid_model()
+    recs = get_receivers()
+    srcs = get_sources()
+    extent = [0., 1., 0., 1.]
+    
+    srcs, recs, extent = convert_kms_2_deg(srcs, recs, extent)
+    
+    options = WaveTrackerOptions(times=True, paths=True, frechet=True)
+    
+    with ProcessPoolExecutor(max_workers=2) as pool:
+        result = calc_wavefronts(
+            g.get_velocity(),
+            recs,
+            srcs,
+            pool=pool,
+            extent=extent,
+            options=options,
+        )
+    
+    assert result.ttimes is not None
+    assert result.paths is not None
+    assert result.frechet is not None
+    
+    expected_tt = calculate_expected_tt(srcs, recs)
+    assert np.allclose(result.ttimes, expected_tt, atol=1e-2)
+
+
+def test_pool_reuse():
+    """Test that a user-provided pool can be reused for multiple calculations"""
+    g = create_velocity_grid_model()
+    recs = get_receivers()
+    srcs1 = get_sources()[:2]
+    srcs2 = get_sources()[2:4]
+    extent = [0., 1., 0., 1.]
+    
+    srcs1, _, extent1 = convert_kms_2_deg(srcs1, recs, extent)
+    srcs2, recs, extent2 = convert_kms_2_deg(srcs2, recs, extent)
+    
+    options = WaveTrackerOptions(times=True, paths=False, frechet=False)
+    
+    with ProcessPoolExecutor(max_workers=2) as pool:
+        # First calculation
+        result1 = calc_wavefronts(
+            g.get_velocity(),
+            recs,
+            srcs1,
+            pool=pool,
+            extent=extent1,
+            options=options,
+        )
+        
+        # Second calculation with same pool
+        result2 = calc_wavefronts(
+            g.get_velocity(),
+            recs,
+            srcs2,
+            pool=pool,
+            extent=extent2,
+            options=options,
+        )
+    
+    assert result1.ttimes is not None
+    assert result2.ttimes is not None
+    assert len(result1.ttimes) == len(srcs1) * len(recs)
+    assert len(result2.ttimes) == len(srcs2) * len(recs)
 
 
 def test_calc_wavefonts_multithreading_vs_serial():
