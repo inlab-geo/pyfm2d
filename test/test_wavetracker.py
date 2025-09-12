@@ -170,7 +170,7 @@ def test_calc_wavefonts_multithreading():
 
 
 def test_user_provided_threadpool_executor():
-    """Test calc_wavefronts with user-provided ThreadPoolExecutor"""
+    """Test that ThreadPoolExecutor raises an error due to Fortran shared memory conflicts"""
     g = create_velocity_grid_model()
     recs = get_receivers()
     srcs = get_sources()
@@ -180,22 +180,18 @@ def test_user_provided_threadpool_executor():
     
     options = WaveTrackerOptions(times=True, paths=True, frechet=True)
     
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        result = calc_wavefronts(
-            g.get_velocity(),
-            recs,
-            srcs,
-            pool=pool,
-            extent=extent,
-            options=options,
-        )
-    
-    assert result.ttimes is not None
-    assert result.paths is not None
-    assert result.frechet is not None
-    
-    expected_tt = calculate_expected_tt(srcs, recs)
-    assert np.allclose(result.ttimes, expected_tt, atol=1e-2)
+    # ThreadPoolExecutor cannot be used due to shared memory conflicts in the Fortran implementation
+    # Multiple threads trying to allocate the same global Fortran arrays causes segfaults
+    with pytest.raises(ValueError, match="ThreadPoolExecutor is not supported"):
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            result = calc_wavefronts(
+                g.get_velocity(),
+                recs,
+                srcs,
+                pool=pool,
+                extent=extent,
+                options=options,
+            )
 
 
 def test_user_provided_processpool_executor():
@@ -204,6 +200,9 @@ def test_user_provided_processpool_executor():
     recs = get_receivers()
     srcs = get_sources()
     extent = [0., 1., 0., 1.]
+    
+    # Calculate expected travel times before conversion
+    expected_tt = calculate_expected_tt(srcs, recs)
     
     srcs, recs, extent = convert_kms_2_deg(srcs, recs, extent)
     
@@ -223,7 +222,6 @@ def test_user_provided_processpool_executor():
     assert result.paths is not None
     assert result.frechet is not None
     
-    expected_tt = calculate_expected_tt(srcs, recs)
     assert np.allclose(result.ttimes, expected_tt, atol=1e-2)
 
 

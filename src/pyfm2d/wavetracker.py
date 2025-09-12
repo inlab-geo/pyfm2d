@@ -226,6 +226,15 @@ def calc_wavefronts(
     """
 
     if pool is not None:
+        # Check if pool is a ThreadPoolExecutor
+        from concurrent.futures import ThreadPoolExecutor
+        if isinstance(pool, ThreadPoolExecutor):
+            raise ValueError(
+                "ThreadPoolExecutor is not supported due to shared memory conflicts in the "
+                "underlying Fortran implementation. Multiple threads cannot safely allocate "
+                "the same global Fortran arrays. Please use ProcessPoolExecutor or other "
+                "process-based pools instead."
+            )
         # User-provided pool takes precedence
         return _calc_wavefronts_multithreading(v, recs, srcs, extent, options, pool=pool)
     elif nthreads <= 1:
