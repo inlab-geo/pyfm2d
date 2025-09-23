@@ -197,6 +197,7 @@ def calc_wavefronts(
     extent=[0.0, 1.0, 0.0, 1.0],
     options: Optional[WaveTrackerOptions] = None,
     nthreads: int = 1,
+    pool=None,
 ):
     """
 
@@ -209,6 +210,11 @@ def calc_wavefronts(
         extent, list               : 4-tuple of model extent [xmin,xmax,ymin,ymax]. (default=[0.,1.,0.,1.])
         options, WaveTrackerOptions: configuration options for the wavefront tracker. (default=None)
         nthreads, int              : number of threads to use for multithreading. Multithreading is performed over sources (default=1)
+        pool                       : User-provided pool for parallel processing. If provided, this takes precedence
+                                    over the nthreads parameter. The pool must implement either a submit() method
+                                    (like concurrent.futures executors) or a map() method (like schwimmbad pools).
+                                    When providing a pool, the user is responsible for its lifecycle management.
+                                    (default=None)
 
 
     Returns
@@ -219,10 +225,22 @@ def calc_wavefronts(
 
     """
 
-    if nthreads <= 1:
+    if pool is not None:
+        # Check if pool is a ThreadPoolExecutor
+        from concurrent.futures import ThreadPoolExecutor
+        if isinstance(pool, ThreadPoolExecutor):
+            raise ValueError(
+                "ThreadPoolExecutor is not supported due to shared memory conflicts in the "
+                "underlying Fortran implementation. Multiple threads cannot safely allocate "
+                "the same global Fortran arrays. Please use ProcessPoolExecutor or other "
+                "process-based pools instead."
+            )
+        # User-provided pool takes precedence
+        return _calc_wavefronts_multithreading(v, recs, srcs, extent, options, pool=pool)
+    elif nthreads <= 1:
         return _calc_wavefronts_process(v, recs, srcs, extent, options)
     else:
-        return _calc_wavefronts_multithreading(v, recs, srcs, nthreads, extent, options)
+        return _calc_wavefronts_multithreading(v, recs, srcs, extent, options, nthreads=nthreads)
 
 
 def _calc_wavefronts_process(
@@ -298,25 +316,45 @@ def _calc_wavefronts_multithreading(
     v,
     recs,
     srcs,
-    nthreads=2,
     extent=[0.0, 1.0, 0.0, 1.0],
     options: Optional[WaveTrackerOptions] = None,
+    nthreads=2,
+    pool=None,
 ) -> WaveTrackerResult:
 
     # Since this function is called when there are multiple sources, we can't specify a single source for the full field calcutlation
     # Although we could create a list of source indices...
     options.ttfield_source = -1
 
-    futures = []
-    # https://docs.python.org/3/library/concurrent.futures.html
-    with concurrent.futures.ProcessPoolExecutor(max_workers=nthreads) as executor:
-        for i in range(np.shape(srcs)[0]):
-            futures.append(
-                executor.submit(
-                    _calc_wavefronts_process, v, recs, srcs[i, :], extent, options
+    # Check if user provided a pool
+    if pool is not None:
+        created_pool = None
+        executor = pool
+    else:
+        # Create internal ProcessPoolExecutor
+        created_pool = concurrent.futures.ProcessPoolExecutor(max_workers=nthreads)
+        executor = created_pool
+
+    try:
+        # Check if executor has submit method (concurrent.futures style)
+        if hasattr(executor, 'submit'):
+            futures = []
+            for i in range(np.shape(srcs)[0]):
+                futures.append(
+                    executor.submit(
+                        _calc_wavefronts_process, v, recs, srcs[i, :], extent, options
+                    )
                 )
-            )
-    result_list = [f.result() for f in futures]
+            result_list = [f.result() for f in futures]
+        else:
+            # Use map for pools that don't have submit (e.g., schwimmbad pools)
+            # Create a list of arguments for each source
+            args_list = [(v, recs, srcs[i, :], extent, options) for i in range(np.shape(srcs)[0])]
+            result_list = list(executor.map(lambda args: _calc_wavefronts_process(*args), args_list))
+    finally:
+        # Clean up internally created pool
+        if created_pool is not None:
+            created_pool.shutdown(wait=True)
 
     return reduce(operator.add, result_list)
 
