@@ -846,7 +846,7 @@ def generate_surface_points(
 # Plotting routines
 # --------------------------------------------------------------------------------------------
 
-def display_model(
+def display_model_orig(
     model,
     paths=None,
     extent=(0, 1, 0, 1),
@@ -950,6 +950,142 @@ def display_model(
 
     plt.show()
 
+def display_model(
+    model,
+    paths=None,
+    extent=(0, 1, 0, 1),
+    clim=None,
+    cmap=None,
+    figsize=(6, 6),
+    title=None,
+    line=1.0,
+    cline="k",
+    alpha=1.0,
+    points=None,
+    wfront=None,
+    cwfront="k",
+    diced=True,
+    dicex=8,
+    dicey=8,
+    cbarshrink=0.6,
+    cbar=True,
+    filename=None,
+    reversedepth=False,
+    points_size = 1.0,
+    aspect = None,
+    ax=None,  # <-- NEW: Optional Axes object
+    **wkwargs,
+):
+    """
+    Function to plot 2D velocity or slowness field.
+    Can plot onto an existing axis if 'ax' is provided.
+
+    Inputs:
+        model, ndarray(nx,ny)          : 2D velocity or slowness field on rectangular grid
+        paths, string                  : ...
+        ax, matplotlib.axes.Axes       : Optional axis object to plot onto.
+    """
+
+    # --- Setup Figure and Axes ---
+    if ax is None:
+        # If no axis is provided, create a new figure and axis
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        # If an axis is provided, make sure we don't call plt.figure() or plt.show()
+        fig = ax.figure # Retain a reference to the figure if needed later
+
+    if cmap is None:
+        cmap = plt.cm.RdBu
+
+    # --- Prepare Data ---
+    plotmodel = model
+    if diced:
+        plotmodel = create_diced_grid(model, extent=extent, dicex=dicex, dicey=dicey)
+
+    # --- Plot Image (imshow) ---
+    if reversedepth:
+        extentr = [extent[0], extent[1], extent[3], extent[2]]
+        # Use ax.imshow() instead of plt.imshow()
+        im = ax.imshow(
+            plotmodel.T, origin="upper", extent=extentr, aspect=aspect, cmap=cmap
+        )
+    else:
+        # Use ax.imshow() instead of plt.imshow()
+        im = ax.imshow(
+            plotmodel.T, origin="lower", extent=extent, aspect=aspect, cmap=cmap
+        )
+
+    # --- Plot Paths (plot) ---
+    if paths is not None:
+        if isinstance(paths, np.ndarray) and paths.ndim == 2:
+            if paths.shape[1] == 4:  # we have paths from xrt.tracer so adjust
+                paths = change_paths_format(paths)
+
+        for i in range(len(paths)):
+            p = paths[i]
+            if type(cline) is list:
+                cl = cline[i]
+            else:
+                cl = cline
+            if type(line) is list:
+                lw = line[i]
+            else:
+                lw = line
+            # Use ax.plot() instead of plt.plot()
+            ax.plot(p[:, 0], p[:, 1], cl, lw=lw, alpha=alpha)
+
+    # --- Set Color Limits (clim) ---
+    if clim is not None:
+        # We can set the clim directly on the image object (im)
+        im.set_clim(clim)
+
+    # --- Set Title (title) ---
+    if title is not None:
+        # Use ax.set_title() instead of plt.title()
+        ax.set_title(title)
+
+    # --- Plot Wavefronts (contour) ---
+    if wfront is not None:
+        nx, ny = wfront.shape
+        X, Y = np.meshgrid(
+            np.linspace(extent[0], extent[1], nx),
+            np.linspace(extent[2], extent[3], ny),
+        )
+        # Use ax.contour() instead of plt.contour()
+        if False: # Retaining original conditional for contour
+             ax.contour(X, Y, wfront.T[::-1], **wkwargs)
+        else:
+             ax.contour(X, Y, wfront.T, **wkwargs)
+
+    # --- Add Colorbar (colorbar) ---
+    if wfront is None and cbar:
+        # Use fig.colorbar() and pass the image (im) and axis (ax)
+        fig.colorbar(im, ax=ax, shrink=cbarshrink)
+
+    # --- Plot Points (plot) ---
+    if points is not None:
+        # Use ax.plot() instead of plt.plot()
+        ax.plot(points[:, 0], points[:, 1], 'bo', markersize=points_size)
+
+    # --- Set Axis Limits (xlim/ylim) ---
+    if reversedepth:
+        # Use ax.set_xlim() and ax.set_ylim()
+        ax.set_xlim(extent[0], extent[1])
+        ax.set_ylim(extent[3], extent[2])
+    else:
+        # Use ax.set_xlim() and ax.set_ylim()
+        ax.set_xlim(extent[0], extent[1])
+        ax.set_ylim(extent[2], extent[3])
+    
+    # --- Save and Show (Only if we created the figure) ---
+    # These should only be called if we created the figure (ax is None initially)
+    if ax is fig.axes[0]: # Simple check if this is the only (first) axis on the fig
+        if filename is not None:
+            fig.savefig(filename)
+            
+    if(ax is None): plt.show() # Only call show if we created the figure
+
+    return
 
 def create_diced_grid(v, extent=[0.0, 1.0, 0.0, 1.0], dicex=8, dicey=8):
     nx, ny = v.shape
