@@ -12,7 +12,7 @@ MODULE globalp
    IMPLICIT NONE
    INTEGER, PARAMETER :: i10 = SELECTED_REAL_KIND(10, 100)
    INTEGER :: checkstat
-   INTEGER, SAVE :: nvx, nvz, nnx, nnz, nrc, fom, gdx, gdz
+   INTEGER, SAVE :: nvx, nvz, nnx, nnz, nrc, fom, gdx, gdz, quiet
    INTEGER, SAVE :: vnl, vnr, vnt, vnb, nrnx, nrnz, sgdl, rbint
    INTEGER, SAVE :: nnxr, nnzr, asgr
    INTEGER, DIMENSION(:, :), ALLOCATABLE :: nsts, nstsr, srs
@@ -2035,7 +2035,7 @@ CONTAINS
                   END DO
                END DO
             END IF
-            IF (j .EQ. maxrp .AND. sw .EQ. 0) THEN
+            IF (j .EQ. maxrp .AND. sw .EQ. 0 .AND. quiet .EQ. 0) THEN
                WRITE (6, *) 'Error with ray path detected!!!'
                WRITE (6, *) 'Source id: ', csid
                WRITE (6, *) 'Receiver id: ', i
@@ -3123,7 +3123,7 @@ CONTAINS
                   END DO
                END DO
             END IF
-            IF (j .EQ. maxrp .AND. sw .EQ. 0) THEN
+            IF (j .EQ. maxrp .AND. sw .EQ. 0 .AND. quiet .EQ. 0) THEN
                WRITE (6, *) 'Error with ray path detected!!!'
                WRITE (6, *) 'Source id: ', csid
                WRITE (6, *) 'Receiver id: ', i
@@ -3698,7 +3698,7 @@ CONTAINS
                   END DO
                END DO
             END IF
-            IF (j .EQ. maxrp .AND. sw .EQ. 0) THEN
+            IF (j .EQ. maxrp .AND. sw .EQ. 0 .AND. quiet .EQ. 0) THEN
                WRITE (6, *) 'Error with ray path detected!!!'
                WRITE (6, *) 'Source id: ', csid
                WRITE (6, *) 'Receiver id: ', i
@@ -3811,11 +3811,11 @@ CONTAINS
    
    
    subroutine set_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_,fsrt_, &
-   cfd_, wttf_, wrgf_, cart_) bind(c, name="set_solver_options")
+   cfd_, wttf_, wrgf_, cart_, quiet_) bind(c, name="set_solver_options")
        integer(c_int) gdx_,gdz_,asgr_,sgdl_,sgs_
        real(c_float) earth_,snb_
        integer(c_int) fom_
-       integer fsrt_, cfd_, wttf_, wrgf_, cart_
+       integer fsrt_, cfd_, wttf_, wrgf_, cart_, quiet_
        
        gdx=gdx_
        gdz=gdz_
@@ -3830,14 +3830,15 @@ CONTAINS
     wttf=wttf_
     wrgf=wrgf_
     cart=cart_
+    quiet=quiet_
     end subroutine set_solver_options
 
    subroutine get_solver_options(gdx_,gdz_,asgr_,sgdl_,sgs_,earth_,fom_,snb_,fsrt_, &
-   cfd_,wttf_, wrgf_, cart_) bind(c, name="get_solver_options")
+   cfd_,wttf_, wrgf_, cart_, quiet_) bind(c, name="get_solver_options")
        integer(c_int) gdx_,gdz_,asgr_,sgdl_,sgs_
        real(c_float) earth_,snb_
        integer(c_int) fom_
-        integer fsrt_, cfd_, wttf_, wrgf_, cart_
+        integer fsrt_, cfd_, wttf_, wrgf_, cart_, quiet_
        gdx_=gdx
        gdz_=gdz
        asgr_=asgr
@@ -3851,6 +3852,7 @@ CONTAINS
     wttf_=wttf
     wrgf_=wrgf
     cart_=cart
+    quiet_=quiet
     end subroutine get_solver_options
 
 
@@ -4755,7 +4757,7 @@ CONTAINS
 !
 !  Notify about ray-boundary intersections if required.
 !
-         IF (rbint .EQ. 1) THEN
+         IF (rbint .EQ. 1 .AND. quiet .EQ. 0) THEN
             WRITE (6, *) 'Note that at least one two-point ray path'
             WRITE (6, *) 'tracked along the boundary of the model.'
             WRITE (6, *) 'This class of path is unlikely to be'
@@ -5199,7 +5201,7 @@ CONTAINS
 !
 !  Notify about ray-boundary intersections if required.
 !
-         IF (rbint .EQ. 1) THEN
+         IF (rbint .EQ. 1 .AND. quiet .EQ. 0) THEN
             WRITE (6, *) 'Note that at least one two-point ray path'
             WRITE (6, *) 'tracked along the boundary of the model.'
             WRITE (6, *) 'This class of path is unlikely to be'

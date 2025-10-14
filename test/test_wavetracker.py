@@ -106,6 +106,7 @@ def test_cleanup():
             options.tsource,
             options.lpaths,
             options.lcartesian,
+            int(options.quiet),
         )
 
         fmm.set_sources(srcs[:, 1], srcs[:, 0])  # ordering inherited from fm2dss.f90

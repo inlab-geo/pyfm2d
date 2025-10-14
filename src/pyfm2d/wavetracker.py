@@ -143,6 +143,8 @@ class WaveTrackerOptions:
         dicex (int): x-subgrid discretization level for B-spline interpolation of input mode. Default is 8.
 
         dicey (int): y-subgrid discretization level for B-spline interpolation of input model. Default is 8.
+
+        quiet (bool): Suppress non-fatal ray path and boundary warnings. Default is False (show warnings).
     """
 
     times: bool = True
@@ -159,6 +161,7 @@ class WaveTrackerOptions:
     velocityderiv: bool = False
     dicex: int = 8
     dicey: int = 8
+    quiet: bool = False
 
     def __post_init__(self):
         # mostly convert boolean to int for Fortran compatibility
@@ -198,6 +201,7 @@ def calc_wavefronts(
     options: Optional[WaveTrackerOptions] = None,
     nthreads: int = 1,
     pool=None,
+    quiet: Optional[bool] = None,
 ):
     """
 
@@ -215,6 +219,8 @@ def calc_wavefronts(
                                     (like concurrent.futures executors) or a map() method (like schwimmbad pools).
                                     When providing a pool, the user is responsible for its lifecycle management.
                                     (default=None)
+        quiet, bool                : Suppress non-fatal ray path and boundary warnings. If provided, overrides
+                                    options.quiet. (default=None)
 
 
     Returns
@@ -224,6 +230,15 @@ def calc_wavefronts(
         Internally variables are converted to np.float32 to be consistent with Fortran code fm2dss.f90.
 
     """
+
+    # Initialize options if not provided
+    if options is None:
+        options = WaveTrackerOptions()
+
+    # Direct parameter overrides options.quiet if provided
+    if quiet is not None:
+        import dataclasses
+        options = dataclasses.replace(options, quiet=quiet)
 
     if pool is not None:
         # Check if pool is a ThreadPoolExecutor
@@ -276,6 +291,7 @@ def _calc_wavefronts_process(
         options.tsource,
         options.lpaths,
         options.lcartesian,
+        int(options.quiet),
     )
 
     fmm.set_sources(srcs[:, 1], srcs[:, 0])  # ordering inherited from fm2dss.f90

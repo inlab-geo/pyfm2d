@@ -49,9 +49,10 @@ def test_set_solver_options():
         options.tfieldsource + 1,
         options.lpaths,
         options.lcartesian,
+        0,  # quiet=False (show warnings)
     )
 
-    gdx, gdz, asgr, sgdl, sgs, earth, fom, snb, fsrt, cfd, wttf, wrgf, cart = (
+    gdx, gdz, asgr, sgdl, sgs, earth, fom, snb, fsrt, cfd, wttf, wrgf, cart, quiet = (
         fmm.get_solver_options()
     )
 
@@ -78,7 +79,7 @@ def test_fmmin2d():
 
 def test_read_solver_options():
     fmm.read_solver_options(FMINFILE)
-    gdx, gdz, asgr, sgdl, sgs, earth, fom, snb, fsrt, cfd, wttf, wrgf, cart = (
+    gdx, gdz, asgr, sgdl, sgs, earth, fom, snb, fsrt, cfd, wttf, wrgf, cart, quiet = (
         fmm.get_solver_options()
     )
 
@@ -239,6 +240,7 @@ def test_track():
         np.int32(options.tfieldsource + 1),
         np.int32(options.lpaths),
         np.int32(options.lcartesian),
+        0,  # quiet=False (show warnings)
     )
 
     fmm.read_velocity_model(VELMODELFILE)
