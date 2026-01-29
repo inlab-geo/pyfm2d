@@ -347,15 +347,12 @@ def get_frechet_derivatives():
     nvx = nvx_.value
     nvz = nvz_.value
 
-    nsrc_ = ctypes.c_int(-99)
-    libfm2d.get_number_of_sources(ctypes.byref(nsrc_))
-    nsrc = nsrc_.value
-    nrc_ = ctypes.c_int(-99)
-    libfm2d.get_number_of_receivers(ctypes.byref(nrc_))
-    nrc = nrc_.value
+    # Number of rows is the actual number of computed pairs (from max row index)
+    # Not nsrc * nrc which would be all possible pairs
+    n_pairs = int(jrow.max()) + 1 if len(jrow) > 0 else 0
 
     return scipy.sparse.csr_array(
-        (jval, (jrow, jcol)), shape=(nsrc * nrc, (nvx + 2) * (nvz + 2))
+        (jval, (jrow, jcol)), shape=(n_pairs, (nvx + 2) * (nvz + 2))
     )
 
 

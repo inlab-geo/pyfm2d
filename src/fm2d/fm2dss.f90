@@ -2421,10 +2421,7 @@ CONTAINS
 
       DO i = 1, nrc
          IF (srs(i, csid) .EQ. 0) THEN
-         	nttimes=nttimes+1
-         	ttimes(nttimes)=norayt
-         	tids(nttimes)=noray
-            !WRITE (10, *) noray, norayt
+            ! Skip pairs not in association matrix (no placeholder written)
             CYCLE
          END IF
 !
@@ -2539,10 +2536,7 @@ CONTAINS
 
       DO i = 1, nrc
          IF (srs(i, csid) .EQ. 0) THEN
-         	nttimes=nttimes+1
-         	ttimes(nttimes)=norayt
-         	tids(nttimes)=noray
-            !WRITE (10, *) noray, norayt
+            ! Skip pairs not in association matrix (no placeholder written)
             CYCLE
          END IF
 !
@@ -4162,15 +4156,15 @@ CONTAINS
 
 	if (fsrt .eq. 1) then
 		!!print*,">>> ttimes"
-    	nttimes=nsrc*nrc
+    	nttimes=sum(srs)  ! Only allocate for specified source-receiver pairs
     	allocate(ttimes(nttimes))
     	allocate(tids(nttimes))
     	nttimes=0
     end if
-       
+
   	if (cfd .EQ. 1) then
   		!!	print*,">>> frechet "
-  		max_frechet_nnz=nsrc*nrc*(nvx+2)*(nvz+2)
+  		max_frechet_nnz=sum(srs)*(nvx+2)*(nvz+2)  ! Only allocate for specified pairs
     	allocate(frechet_irow(max_frechet_nnz))
     	allocate(frechet_icol(max_frechet_nnz))
     	allocate(frechet_val(max_frechet_nnz))
@@ -4180,8 +4174,10 @@ CONTAINS
    	!if (wrgf .eq. 1) then ! MS changed to allow consistency with use of wrgf elsewhere
    	if (wrgf .ne. 0) then
    		!!	print*,">>> paths"
-    	npaths=nsrc*nrc
-    	max_nppts=(gdz*gdx*nvx*nvz)
+    	npaths=sum(srs)  ! Only allocate for specified source-receiver pairs
+    	! Use realistic estimate: ~2x diagonal length of diced grid
+    	! Much smaller than worst-case gdz*gdx*nvx*nvz
+    	max_nppts = 2 * gdz * gdx * max(nvx, nvz)
     	allocate(paths(npaths,max_nppts,2))
     	allocate(nppts(npaths))
     	npaths=0

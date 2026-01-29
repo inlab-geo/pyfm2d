@@ -166,6 +166,16 @@ class WaveTrackerOptions:
     def __post_init__(self):
         # mostly convert boolean to int for Fortran compatibility
 
+        # Frechet derivatives require paths to be computed (npaths counter is used for row indices)
+        if self.frechet and not self.paths:
+            import warnings
+            warnings.warn(
+                "frechet=True requires paths=True for correct row indexing. "
+                "Setting paths=True automatically.",
+                UserWarning
+            )
+            object.__setattr__(self, 'paths', True)
+
         # Write out ray paths. Only allow all (-1) or none (0)
         self.lpaths: int = -1 if self.paths else 0
 
@@ -264,6 +274,7 @@ def _calc_wavefronts_process(
     srcs,
     extent=[0.0, 1.0, 0.0, 1.0],
     options: Optional[WaveTrackerOptions] = None,
+    associations: Optional[np.ndarray] = None,
 ):
     # here extent[3],extent[2] is N-S range of grid nodes
     #      extent[0],extent[1] is W-E range of grid nodes

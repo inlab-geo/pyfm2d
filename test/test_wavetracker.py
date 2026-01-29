@@ -296,3 +296,41 @@ def test_calc_wavefonts_multithreading_vs_serial():
     for i in range(len(result_serial.paths)):
         assert np.allclose(result_serial.paths[i], result_parallel.paths[i]), f"Path {i} is not equal"
     assert np.allclose(result_serial.frechet.toarray(), result_parallel.frechet.toarray())
+
+
+def test_frechet_requires_paths():
+    """Test that frechet=True automatically enables paths=True with a warning."""
+    import warnings
+
+    # Creating options with frechet=True but paths=False should emit a warning
+    # and automatically set paths=True
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        options = WaveTrackerOptions(times=True, frechet=True, paths=False, cartesian=True)
+
+        # Check that warning was emitted
+        assert len(w) == 1
+        assert "frechet=True requires paths=True" in str(w[0].message)
+
+        # Check that paths was auto-corrected
+        assert options.paths is True
+        assert options.lpaths == -1  # Fortran flag for paths enabled
+
+    # Verify the frechet derivatives work correctly with auto-corrected options
+    g = create_velocity_grid_model()
+    recs = get_receivers()
+    srcs = get_sources()
+    extent = [0., 1., 0., 1.]
+
+    result = _calc_wavefronts_process(
+        g.get_velocity(),
+        recs,
+        srcs,
+        extent=extent,
+        options=options,
+    )
+
+    assert result.frechet is not None
+    assert result.paths is not None
+    # Frechet row indices should be valid (all >= 0 after conversion from Fortran 1-indexing)
+    assert result.frechet.shape[0] == len(srcs) * len(recs)
