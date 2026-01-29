@@ -143,16 +143,14 @@ def get_sources():
     nsrc_ = ctypes.c_int(-99)
     libfm2d.get_number_of_sources(ctypes.byref(nsrc_))
     nsrc = nsrc_.value
-    scx_ = np.empty((nsrc), dtype=ctypes.c_float)
-    scz_ = np.empty((nsrc), dtype=ctypes.c_float)
+    scx = np.empty(nsrc, dtype=ctypes.c_float)
+    scz = np.empty(nsrc, dtype=ctypes.c_float)
     libfm2d.get_sources(
-        scx_.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
-        scz_.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
+        scx.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
+        scz.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
         ctypes.byref(nsrc_),
     )
-    scx = np.array(scx_)
-    scz = np.array(scz_)
-    return scx, scz
+    return np.array(scx), np.array(scz)
 
 
 def read_receivers(fn_):
@@ -176,16 +174,14 @@ def get_receivers():
     nrc_ = ctypes.c_int(-99)
     libfm2d.get_number_of_receivers(ctypes.byref(nrc_))
     nrc = nrc_.value
-    rcx_ = np.empty((nrc), dtype=ctypes.c_float)
-    rcz_ = np.empty((nrc), dtype=ctypes.c_float)
+    rcx = np.empty(nrc, dtype=ctypes.c_float)
+    rcz = np.empty(nrc, dtype=ctypes.c_float)
     libfm2d.get_receivers(
-        rcx_.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
-        rcz_.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
+        rcx.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
+        rcz.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
         ctypes.byref(nrc_),
     )
-    rcx = np.array(rcx_)
-    rcz = np.array(rcz_)
-    return rcx, rcz
+    return np.array(rcx), np.array(rcz)
 
 
 def read_source_receiver_associations(fn_):
@@ -194,36 +190,24 @@ def read_source_receiver_associations(fn_):
 
 
 def set_source_receiver_associations(srs):
-    nsrc_ = ctypes.c_int(-99)
-    libfm2d.get_number_of_sources(ctypes.byref(nsrc_))
-    nrc_ = ctypes.c_int(-99)
-    libfm2d.get_number_of_receivers(ctypes.byref(nrc_))
-
     srs_ = np.asfortranarray(srs, dtype=np.int32)
-    srs_ = libfm2d.set_source_receiver_associations(
+    libfm2d.set_source_receiver_associations(
         srs_.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
     )
-
-    return
 
 
 def get_source_receiver_associations():
-
     nsrc_ = ctypes.c_int(-99)
     libfm2d.get_number_of_sources(ctypes.byref(nsrc_))
-    nsrc = nsrc_.value
 
     nrc_ = ctypes.c_int(-99)
     libfm2d.get_number_of_receivers(ctypes.byref(nrc_))
-    nrc = nrc_.value
 
-    srs_ = np.asfortranarray(np.zeros([nrc, nsrc]), dtype=np.int32)
+    srs = np.asfortranarray(np.zeros([nrc_.value, nsrc_.value]), dtype=np.int32)
     libfm2d.get_source_receiver_associations(
-        srs_.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
+        srs.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
     )
-
-    srs = np.array(srs_)
-    return srs
+    return np.array(srs)
 
 
 def read_velocity_model(fn_):
@@ -304,105 +288,87 @@ def get_traveltimes():
     libfm2d.get_number_of_traveltimes(ctypes.byref(nttimes_))
     nttimes = nttimes_.value
 
-    ttimes_ = np.asfortranarray(np.zeros(nttimes), dtype=np.float32)
-
-    tids_ = np.asfortranarray(np.zeros(nttimes), dtype=np.int32)
+    ttimes = np.asfortranarray(np.zeros(nttimes), dtype=np.float32)
+    tids = np.asfortranarray(np.zeros(nttimes), dtype=np.int32)
 
     libfm2d.get_traveltimes(
-        ttimes_.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
-        tids_.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
+        ttimes.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
+        tids.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
     )
-
-    ttimes = np.array(ttimes_)
-
-    return ttimes
+    return np.array(ttimes)
 
 
 def get_frechet_derivatives():
-
     frechet_nnz_ = ctypes.c_int(-99)
     libfm2d.get_number_of_frechet_derivatives(ctypes.byref(frechet_nnz_))
     frechet_nnz = frechet_nnz_.value
 
-    frechet_irow_ = np.asfortranarray(np.zeros(frechet_nnz), dtype=np.int32)
-    frechet_icol_ = np.asfortranarray(np.zeros(frechet_nnz), dtype=np.int32)
-    frechet_val_ = np.asfortranarray(np.zeros(frechet_nnz), dtype=np.float32)
+    frechet_irow = np.asfortranarray(np.zeros(frechet_nnz), dtype=np.int32)
+    frechet_icol = np.asfortranarray(np.zeros(frechet_nnz), dtype=np.int32)
+    frechet_val = np.asfortranarray(np.zeros(frechet_nnz), dtype=np.float32)
 
     libfm2d.get_frechet_derivatives(
-        frechet_irow_.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
-        frechet_icol_.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
-        frechet_val_.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
+        frechet_irow.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
+        frechet_icol.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
+        frechet_val.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
     )
 
-    jrow = np.array(frechet_irow_) - 1
-    jcol = np.array(frechet_icol_) - 1
-    jval = np.array(frechet_val_)
+    # Convert from Fortran 1-indexing to Python 0-indexing
+    jrow = np.array(frechet_irow) - 1
+    jcol = np.array(frechet_icol) - 1
+    jval = np.array(frechet_val)
 
     nvx_ = ctypes.c_int(-99)
     nvz_ = ctypes.c_int(-99)
-
     libfm2d.get_number_of_velocity_model_vertices(
         ctypes.byref(nvx_), ctypes.byref(nvz_)
     )
-    nvx = nvx_.value
-    nvz = nvz_.value
 
     # Number of rows is the actual number of computed pairs (from max row index)
-    # Not nsrc * nrc which would be all possible pairs
     n_pairs = int(jrow.max()) + 1 if len(jrow) > 0 else 0
 
     return scipy.sparse.csr_array(
-        (jval, (jrow, jcol)), shape=(n_pairs, (nvx + 2) * (nvz + 2))
+        (jval, (jrow, jcol)), shape=(n_pairs, (nvx_.value + 2) * (nvz_.value + 2))
     )
 
 
 def get_raypaths():
-
     npaths_ = ctypes.c_int(-99)
     libfm2d.get_number_of_raypaths(ctypes.byref(npaths_))
-    npaths = int(npaths_.value)
+    npaths = npaths_.value
 
     max_nppts_ = ctypes.c_int(-99)
     libfm2d.get_maximum_number_of_points_per_raypath(ctypes.byref(max_nppts_))
-    max_nppts = int(max_nppts_.value)
+    max_nppts = max_nppts_.value
 
-    paths_ = np.asfortranarray(np.zeros([npaths, max_nppts, 2]), dtype=np.float32)
-
-    nppts_ = np.asfortranarray(np.zeros([npaths]), dtype=np.int32)
+    paths_data = np.asfortranarray(np.zeros([npaths, max_nppts, 2]), dtype=np.float32)
+    nppts = np.asfortranarray(np.zeros(npaths), dtype=np.int32)
 
     libfm2d.get_raypaths(
-        paths_.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
-        nppts_.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
+        paths_data.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
+        nppts.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
     )
 
     paths = []
-
     for i in range(npaths):
-        lat = paths_[i, 0 : nppts_[i], 0]
-        long = paths_[i, 0 : nppts_[i], 1]
-        path = np.array([long, lat]).T
-        paths.append(path)
-
+        lat = paths_data[i, :nppts[i], 0]
+        lon = paths_data[i, :nppts[i], 1]
+        paths.append(np.array([lon, lat]).T)
     return paths
 
 
 def get_traveltime_fields():
     nsrc_ = ctypes.c_int(-99)
     libfm2d.get_number_of_sources(ctypes.byref(nsrc_))
-    nsrc = nsrc_.value
 
     nnx_ = ctypes.c_int(-99)
     nnz_ = ctypes.c_int(-99)
-
     libfm2d.get_number_of_grid_nodes(ctypes.byref(nnx_), ctypes.byref(nnz_))
-    nnx = nnx_.value
-    nnz = nnz_.value
 
-    tfields_ = np.asfortranarray(np.zeros([nsrc, nnz, nnx]), dtype=np.float32)
-
-    libfm2d.get_traveltime_fields(
-        tfields_.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+    tfields = np.asfortranarray(
+        np.zeros([nsrc_.value, nnz_.value, nnx_.value]), dtype=np.float32
     )
-
-    tfields = np.array(tfields_)
-    return tfields
+    libfm2d.get_traveltime_fields(
+        tfields.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+    )
+    return np.array(tfields)

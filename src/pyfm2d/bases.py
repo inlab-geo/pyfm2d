@@ -307,12 +307,6 @@ class RayKernel1D:  # A linear data kernel class
             return out.T
 
 
-class Error(Exception):
-    """Base class for other exceptions"""
-
-    pass
-
-
 class KernelOBSError(Exception):
     """Raised when input kernel id does not exist in kernel definition"""
 
@@ -340,31 +334,16 @@ def randomrays2Dbox(Nrays, x, y, seed=61254557, filename=""):
     return paths2D
 
 
-def _choose_endpoint(side, x, y):  # choose random point on boundary of 2D box
+def _choose_endpoint(side, x, y):
+    """Choose random point on boundary of 2D box."""
+    rand = np.random.random()
     if side == 0:
-        # choose endpoint randomly along xmin side
-        return [
-            x[0],
-            y[0] + (y[-1] - y[0]) * np.random.random(),
-        ]
-    elif side == 1:
-        # choose endpoint randomly along xmax side
-        return [
-            x[-1],
-            y[0] + (y[-1] - y[0]) * np.random.random(),
-        ]
-    elif side == 2:
-        # choose endpoint randomly along ymin side
-        return [
-            x[0] + (x[-1] - x[0]) * np.random.random(),
-            y[0],
-        ]
-    else:
-        # choose endpoint randomly along ymax side
-        return [
-            x[0] + (x[-1] - x[0]) * np.random.random(),
-            y[-1],
-        ]
+        return [x[0], y[0] + (y[-1] - y[0]) * rand]
+    if side == 1:
+        return [x[-1], y[0] + (y[-1] - y[0]) * rand]
+    if side == 2:
+        return [x[0] + (x[-1] - x[0]) * rand, y[0]]
+    return [x[0] + (x[-1] - x[0]) * rand, y[-1]]
 
 
 def _generate_center_coordinates(l_x):

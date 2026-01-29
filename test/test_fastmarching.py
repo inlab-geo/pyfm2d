@@ -1,9 +1,9 @@
 import os
+from dataclasses import dataclass
+from pathlib import Path
+
 import numpy as np
 import pytest
-from dataclasses import dataclass
-
-from pathlib import Path
 
 from pyfm2d import fastmarching as fmm
 
@@ -182,9 +182,9 @@ def test_set_sources():
 def test_read_receivers():
     fmm.read_receivers(RECEIVERSFILE)
     rcx, rcz = fmm.get_receivers()
-    receviers = np.array([rcx, rcz]).T
+    receivers = np.array([rcx, rcz]).T
 
-    assert np.array_equal(receviers, np.loadtxt(RECEIVERSFILE, skiprows=1))
+    assert np.array_equal(receivers, np.loadtxt(RECEIVERSFILE, skiprows=1))
 
 
 def test_set_receivers():
@@ -258,7 +258,7 @@ def test_track():
     paths = fmm.get_raypaths()
     assert paths is not None
 
-    tfields = fmm.get_traveltime_fields()  ## failing silently here
+    tfields = fmm.get_traveltime_fields()
     assert tfields is not None
 
     frechet = fmm.get_frechet_derivatives()
