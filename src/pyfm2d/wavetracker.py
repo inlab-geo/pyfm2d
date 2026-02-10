@@ -5,11 +5,10 @@ from scipy.interpolate import RectBivariateSpline
 from scipy.sparse import csr_matrix, vstack
 import faulthandler
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Optional
 import concurrent.futures
 from functools import reduce
 import operator
-import sys
 
 from . import fastmarching as fmm
 from . import bases as base
@@ -73,28 +72,15 @@ class WaveTrackerResult:
     frechet: Optional[csr_matrix] = None
 
     def __add__(self, other: "WaveTrackerResult"):
-
         try:
             self._check_compatibility(other)
         except InputError as e:
             raise InputError(f"Incompatible WaveTrackerResults: {e}")
 
-        if self.ttimes is not None:
-            ttimes = np.concatenate([self.ttimes, other.ttimes])
-        else:
-            ttimes = None
-        if self.paths is not None:
-            paths = self.paths + other.paths
-        else:
-            paths = None
-        if self.ttfield is not None:
-            ttfield = np.concatenate([self.ttfield, other.ttfield])
-        else:
-            ttfield = None
-        if self.frechet is not None:
-            frechet = vstack([self.frechet, other.frechet])
-        else:
-            frechet = None
+        ttimes = np.concatenate([self.ttimes, other.ttimes]) if self.ttimes is not None else None
+        paths = self.paths + other.paths if self.paths is not None else None
+        ttfield = np.concatenate([self.ttfield, other.ttfield]) if self.ttfield is not None else None
+        frechet = vstack([self.frechet, other.frechet]) if self.frechet is not None else None
 
         return WaveTrackerResult(ttimes, paths, ttfield, frechet)
 
@@ -166,6 +152,16 @@ class WaveTrackerOptions:
     def __post_init__(self):
         # mostly convert boolean to int for Fortran compatibility
 
+        # Frechet derivatives require paths to be computed (npaths counter is used for row indices)
+        if self.frechet and not self.paths:
+            import warnings
+            warnings.warn(
+                "frechet=True requires paths=True for correct row indexing. "
+                "Setting paths=True automatically.",
+                UserWarning
+            )
+            object.__setattr__(self, 'paths', True)
+
         # Write out ray paths. Only allow all (-1) or none (0)
         self.lpaths: int = -1 if self.paths else 0
 
@@ -202,6 +198,7 @@ def calc_wavefronts(
     nthreads: int = 1,
     pool=None,
     quiet: Optional[bool] = None,
+    associations: Optional[np.ndarray] = None,
 ):
     """
 
@@ -221,6 +218,10 @@ def calc_wavefronts(
                                     (default=None)
         quiet, bool                : Suppress non-fatal ray path and boundary warnings. If provided, overrides
                                     options.quiet. (default=None)
+        associations, ndarray(nr,ns): Binary matrix indicating which source-receiver pairs to compute.
+                                    Shape is (n_receivers, n_sources). A value of 1 at [i,j] means compute
+                                    the travel time from source j to receiver i. If None, computes all pairs.
+                                    (default=None)
 
 
     Returns
@@ -251,11 +252,11 @@ def calc_wavefronts(
                 "process-based pools instead."
             )
         # User-provided pool takes precedence
-        return _calc_wavefronts_multithreading(v, recs, srcs, extent, options, pool=pool)
+        return _calc_wavefronts_multithreading(v, recs, srcs, extent, options, pool=pool, associations=associations)
     elif nthreads <= 1:
-        return _calc_wavefronts_process(v, recs, srcs, extent, options)
+        return _calc_wavefronts_process(v, recs, srcs, extent, options, associations=associations)
     else:
-        return _calc_wavefronts_multithreading(v, recs, srcs, extent, options, nthreads=nthreads)
+        return _calc_wavefronts_multithreading(v, recs, srcs, extent, options, nthreads=nthreads, associations=associations)
 
 
 def _calc_wavefronts_process(
@@ -264,6 +265,7 @@ def _calc_wavefronts_process(
     srcs,
     extent=[0.0, 1.0, 0.0, 1.0],
     options: Optional[WaveTrackerOptions] = None,
+    associations: Optional[np.ndarray] = None,
 ):
     # here extent[3],extent[2] is N-S range of grid nodes
     #      extent[0],extent[1] is W-E range of grid nodes
@@ -312,8 +314,9 @@ def _calc_wavefronts_process(
         vc = vc[:, ::-1] # reverse direction of velocity model in latitude direction for Spherical model
         fmm.set_velocity_model(nvy, nvx, extent[3], extent[0], dlat, dlong, vc)
 
-    # set up time calculation between all sources and receivers
-    associations = np.ones((recs.shape[0], srcs.shape[0]))
+    # set up time calculation between sources and receivers
+    if associations is None:
+        associations = np.ones((recs.shape[0], srcs.shape[0]))
     fmm.set_source_receiver_associations(associations)
 
     fmm.allocate_result_arrays()  # allocate memory for Fortran arrays
@@ -336,6 +339,7 @@ def _calc_wavefronts_multithreading(
     options: Optional[WaveTrackerOptions] = None,
     nthreads=2,
     pool=None,
+    associations: Optional[np.ndarray] = None,
 ) -> WaveTrackerResult:
 
     # Since this function is called when there are multiple sources, we can't specify a single source for the full field calcutlation
@@ -356,16 +360,21 @@ def _calc_wavefronts_multithreading(
         if hasattr(executor, 'submit'):
             futures = []
             for i in range(np.shape(srcs)[0]):
+                # Extract associations column for this source (reshape to 2D for single source)
+                src_associations = associations[:, i:i+1] if associations is not None else None
                 futures.append(
                     executor.submit(
-                        _calc_wavefronts_process, v, recs, srcs[i, :], extent, options
+                        _calc_wavefronts_process, v, recs, srcs[i, :], extent, options, src_associations
                     )
                 )
             result_list = [f.result() for f in futures]
         else:
             # Use map for pools that don't have submit (e.g., schwimmbad pools)
             # Create a list of arguments for each source
-            args_list = [(v, recs, srcs[i, :], extent, options) for i in range(np.shape(srcs)[0])]
+            args_list = [
+                (v, recs, srcs[i, :], extent, options, associations[:, i:i+1] if associations is not None else None)
+                for i in range(np.shape(srcs)[0])
+            ]
             result_list = list(executor.map(lambda args: _calc_wavefronts_process(*args), args_list))
     finally:
         # Clean up internally created pool
@@ -376,49 +385,34 @@ def _calc_wavefronts_multithreading(
 
 
 def collect_results(options: WaveTrackerOptions, velocity):
-    # fmst expects input spatial co-ordinates in degrees and velocities in kms/s for spherical reference frame (unless cartesian=True)
-    # if cartesian is True then fmst expects input spatial co-ordinates in kms and velocities in kms/s
-
-    ttimes = None
-    raypaths = None
-    frechetvals = None
-    tfield = None
-
-    if options.times:
-        ttimes = fmm.get_traveltimes().copy()
-
-    if options.paths:
-        raypaths = fmm.get_raypaths().copy()
-
-    if options.frechet:
-        frechetvals = _get_frechet_derivatives(options.cartesian, options.velocityderiv, velocity)
-
-    if options.ttfield_source >= 0:
-        tfield = _get_tfield(options.cartesian, options.ttfield_source)
+    """Collect results from the Fortran solver based on requested options."""
+    ttimes = fmm.get_traveltimes().copy() if options.times else None
+    raypaths = fmm.get_raypaths().copy() if options.paths else None
+    frechetvals = _get_frechet_derivatives(options.cartesian, options.velocityderiv, velocity) if options.frechet else None
+    tfield = _get_tfield(options.cartesian, options.ttfield_source) if options.ttfield_source >= 0 else None
 
     return WaveTrackerResult(ttimes, raypaths, tfield, frechetvals)
 
 
 def _get_frechet_derivatives(cartesian, velocityderiv, velocity):
+    """Extract and process Frechet derivatives from the Fortran solver."""
     frechetvals = fmm.get_frechet_derivatives()
+    nx, ny = velocity.shape
 
-    # the frechet matrix returned in csr format and has two layers of cushion nodes surrounding the (nx,ny) grid
-    F = frechetvals.toarray()  # unpack csr format
-    nrays = F.shape[0]  # number of raypaths
-    nx, ny = velocity.shape  # shape of non-cushion velcoity model
-
-    # remove cushion nodes and reshape to (nx,ny)
+    # Remove cushion nodes and reshape
+    F = frechetvals.toarray()
+    nrays = F.shape[0]
     noncushion = _build_grid_noncushion_map(nx, ny)
     F = F[:, noncushion.flatten()].reshape((nrays, nx, ny))
 
-    # For Spherical mode: reverse y order, for consistency (cf. ttfield array)
-    if (not cartesian):
+    # For Spherical mode: reverse y order for consistency with ttfield array
+    if not cartesian:
         F = F[:, :, ::-1]
 
-    # reformat as a sparse CSR matrix
     frechetvals = csr_matrix(F.reshape((nrays, nx * ny)))
 
-    if not velocityderiv: # change derivatives to slowness (default), otherwise stay as velocity.
+    # Convert to slowness derivatives (default) unless velocity derivatives requested
+    if not velocityderiv:
         x2 = -(velocity * velocity).reshape(-1)
         frechetvals = frechetvals.multiply(x2)
 
@@ -426,87 +420,72 @@ def _get_frechet_derivatives(cartesian, velocityderiv, velocity):
 
 
 def _get_tfield(cartesian, source):
-    tfieldvals = fmm.get_traveltime_fields()
-
-    tfield = tfieldvals[source].copy()
-
-    # flip y axis of travel time field as it is provided in reverse ordered.
-    if (not cartesian): 
+    """Extract travel time field for a specific source."""
+    tfield = fmm.get_traveltime_fields()[source].copy()
+    # Flip y axis for spherical mode (field is provided in reverse order)
+    if not cartesian:
         tfield = tfield[:, ::-1]
     return tfield
 
 
-def _build_velocity_grid(v):  # maybe this could be split up a bit?
-    # add cushion nodes about velocity model to be compatible with fm2dss.f90 input
-
+def _build_velocity_grid(v):
+    """Add cushion nodes around velocity model for fm2dss.f90 compatibility."""
     nx, ny = v.shape
-
-    # gridc.vtx requires a single cushion layer of nodes surrounding the velocty model
-    # additional boundary layer of velocities are duplicates of the nearest actual velocity value.
     vc = np.ones((nx + 2, ny + 2))
-    vc[1 : nx + 1, 1 : ny + 1] = v
-    vc[1 : nx + 1, 0] = v[:, 0]  # add velocities in the cushion boundary layer
-    vc[1 : nx + 1, -1] = v[:, -1]  # add velocities in the cushion boundary layer
-    vc[0, 1 : ny + 1] = v[0, :]  # add velocities in the cushion boundary layer
-    vc[-1, 1 : ny + 1] = v[-1, :]  # add velocities in the cushion boundary layer
-    vc[0, 0], vc[0, -1], vc[-1, 0], vc[-1, -1] = (
-        v[0, 0],
-        v[0, -1],
-        v[-1, 0],
-        v[-1, -1],
-    )
+
+    # Copy interior values
+    vc[1:nx + 1, 1:ny + 1] = v
+
+    # Extend boundary values to cushion layer
+    vc[1:nx + 1, 0] = v[:, 0]
+    vc[1:nx + 1, -1] = v[:, -1]
+    vc[0, 1:ny + 1] = v[0, :]
+    vc[-1, 1:ny + 1] = v[-1, :]
+
+    # Corner values
+    vc[0, 0], vc[0, -1], vc[-1, 0], vc[-1, -1] = v[0, 0], v[0, -1], v[-1, 0], v[-1, -1]
 
     return vc
 
 
 def _build_grid_noncushion_map(nx, ny):
-    # bool array to identify cushion and non cushion nodes
+    """Create boolean array identifying non-cushion nodes."""
     noncushion = np.zeros((nx + 2, ny + 2), dtype=bool)
-    noncushion[1 : nx + 1, 1 : ny + 1] = True
+    noncushion[1:nx + 1, 1:ny + 1] = True
     return noncushion
 
 
 def _build_node_map(nx, ny):
-    # mapping from cushion indices to non cushion indices
+    """Create mapping from cushion indices to non-cushion indices."""
     nodemap = np.zeros((nx + 2, ny + 2), dtype=int)
-    nodemap[1 : nx + 1, 1 : ny + 1] = np.array(range((nx * ny))).reshape((nx, ny))
-    nodemap = nodemap[:, ::-1]
-    return nodemap
+    nodemap[1:nx + 1, 1:ny + 1] = np.arange(nx * ny).reshape((nx, ny))
+    return nodemap[:, ::-1]
 
 
 def _check_sources_receivers_inside_extent(srcs, recs, extent):
-    xmin = extent[0]
-    xmax = extent[1]
-    ymin = extent[2]
-    ymax = extent[3]
+    """Validate that all sources and receivers lie within the model extent."""
+    xmin, xmax, ymin, ymax = extent
 
-    rcx = recs[:, 0]
-    rcy = recs[:, 1]
-    if not np.all((xmin <= rcx) & (rcx <= xmax) & (ymin <= rcy) & (rcy <= ymax)):
+    if not np.all((xmin <= recs[:, 0]) & (recs[:, 0] <= xmax) & (ymin <= recs[:, 1]) & (recs[:, 1] <= ymax)):
         raise InputError(
-            msg="Input Error: One or more receiver lies outside of model extent: "
-            + str(extent)
-            + "\nRemedy: adjust receiver locations and run again."
+            msg=f"Input Error: One or more receiver lies outside of model extent: {extent}"
+            "\nRemedy: adjust receiver locations and run again."
         )
 
-    srcx = srcs[:, 0]
-    srcy = srcs[:, 1]
-    if not np.all((xmin <= srcx) & (srcx <= xmax) & (ymin <= srcy) & (srcy <= ymax)):
+    if not np.all((xmin <= srcs[:, 0]) & (srcs[:, 0] <= xmax) & (ymin <= srcs[:, 1]) & (srcs[:, 1] <= ymax)):
         raise InputError(
-            msg="Input Error: One or more source lies outside of model extent: "
-            + str(extent)
-            + "\nRemedy: adjust source locations and run again."
+            msg=f"Input Error: One or more source lies outside of model extent: {extent}"
+            "\nRemedy: adjust source locations and run again."
         )
 
 
 def _check_requested_source_exists(tfieldsource, ns):
+    """Warn if requested travel time field source does not exist."""
     if tfieldsource + 1 > ns:
-        # source requested for travel time field does not exist
         print(
-            f"Error: Travel time field corresponds to source: {tfieldsource}",
-            "\n",
-            f"      but total number of sources is {ns}.",
-            "\n       No travel time field will be calculated.\n",
+            f"Error: Travel time field corresponds to source: {tfieldsource}\n"
+            f"       but total number of sources is {ns}.\n"
+            "       No travel time field will be calculated.\n"
         )
 
 
@@ -811,160 +790,56 @@ class BasisModel:  # This is for a 2D model basis accessed through the package b
 # Utility functions
 # --------------------------------------------------------------------------------------------
 def norm(x):
+    """Compute the L2 norm of a vector."""
     return np.sqrt(x.dot(x))
 
 
 def normalise(x):
+    """Normalize a vector to unit length."""
     return x / norm(x)
 
 
 def png_to_model(pngfile, nx, ny, bg=1.0, sc=1.0):
+    """Convert a PNG image to a velocity model."""
     png = Image.open(pngfile)
     png.load()
-    model = sc * (
-        bg
-        + np.asarray(png.convert("L").resize((nx, ny)).transpose(Image.ROTATE_270))
-        / 255.0
-    )
-    return model
+    grayscale = np.asarray(png.convert("L").resize((nx, ny)).transpose(Image.ROTATE_270))
+    return sc * (bg + grayscale / 255.0)
 
 
-def generate_surface_points(
-    nPerSide,
-    extent=(0, 1, 0, 1),
-    surface=[True, True, True, True],
-    addCorners=True,
-):
+def generate_surface_points(nPerSide, extent=(0, 1, 0, 1), surface=None, addCorners=True):
+    """Generate points along the boundary of a rectangular extent."""
+    if surface is None:
+        surface = [True, True, True, True]
+
     out = []
-    x = np.linspace(extent[0], extent[1], nPerSide + 2)[1 : nPerSide + 1]
-    y = np.linspace(extent[2], extent[3], nPerSide + 2)[1 : nPerSide + 1]
+    x = np.linspace(extent[0], extent[1], nPerSide + 2)[1:nPerSide + 1]
+    y = np.linspace(extent[2], extent[3], nPerSide + 2)[1:nPerSide + 1]
+
     if surface[0]:
-        out += [[extent[0], _y] for _y in y]
+        out.extend([[extent[0], _y] for _y in y])
     if surface[1]:
-        out += [[extent[1], _y] for _y in y]
+        out.extend([[extent[1], _y] for _y in y])
     if surface[2]:
-        out += [[_x, extent[2]] for _x in x]
+        out.extend([[_x, extent[2]] for _x in x])
     if surface[3]:
-        out += [[_x, extent[3]] for _x in x]
+        out.extend([[_x, extent[3]] for _x in x])
+
     if addCorners:
-        if surface[0] or surface[2]:
-            out += [[extent[0], extent[2]]]
-        if surface[0] or surface[3]:
-            out += [[extent[0], extent[3]]]
-        if surface[1] or surface[2]:
-            out += [[extent[1], extent[2]]]
-        if surface[1] or surface[3]:
-            out += [[extent[1], extent[3]]]
+        corners = [
+            (surface[0] or surface[2], [extent[0], extent[2]]),
+            (surface[0] or surface[3], [extent[0], extent[3]]),
+            (surface[1] or surface[2], [extent[1], extent[2]]),
+            (surface[1] or surface[3], [extent[1], extent[3]]),
+        ]
+        out.extend([pt for cond, pt in corners if cond])
+
     return np.array(out)
 
 
 # --------------------------------------------------------------------------------------------
 # Plotting routines
 # --------------------------------------------------------------------------------------------
-
-def display_model_orig(
-    model,
-    paths=None,
-    extent=(0, 1, 0, 1),
-    clim=None,
-    cmap=None,
-    figsize=(6, 6),
-    title=None,
-    line=1.0,
-    cline="k",
-    alpha=1.0,
-    points=None,
-    wfront=None,
-    cwfront="k",
-    diced=True,
-    dicex=8,
-    dicey=8,
-    cbarshrink=0.6,
-    cbar=True,
-    filename=None,
-    reversedepth=False,
-    points_size = 1.0,
-    aspect = None,
-    **wkwargs,
-):
-    """
-
-    Function to plot 2D velocity or slowness field
-
-    Inputs:
-        model, ndarray(nx,ny)           : 2D velocity or slowness field on rectangular grid
-        paths, string                   :
-
-    """
-
-    fig = plt.figure(figsize=figsize)
-    
-    if cmap is None:
-        cmap = plt.cm.RdBu
-
-    # if diced option plot the actual B-spline interpolated velocity used by fmst program
-
-    plotmodel = model
-    if diced:
-        plotmodel = create_diced_grid(model, extent=extent, dicex=dicex, dicey=dicey)
-    
-    if(reversedepth):
-        extentr = [extent[0],extent[1],extent[3],extent[2]]
-        plt.imshow(plotmodel.T, origin="upper", extent=extentr, aspect=aspect, cmap=cmap)
-    else:
-        plt.imshow(plotmodel.T, origin="lower", extent=extent, aspect=aspect, cmap=cmap)
-        
-    if paths is not None:
-        if isinstance(paths, np.ndarray) and paths.ndim == 2:
-            if paths.shape[1] == 4:  # we have paths from xrt.tracer so adjust
-                paths = change_paths_format(paths)
-
-        for i in range(len(paths)):
-            p = paths[i]
-            if(type(cline) is list):
-                cl = cline[i]
-            else:
-                cl = cline
-            if(type(line) is list):
-                lw = line[i]
-            else:
-                lw = line
-            plt.plot(p[:, 0], p[:, 1], cl, lw=lw, alpha=alpha)
-
-    if clim is not None:
-        plt.clim(clim)
-
-    if title is not None:
-        plt.title(title)
-
-    if wfront is not None:
-        nx, ny = wfront.shape
-        X, Y = np.meshgrid(
-            np.linspace(extent[0], extent[1], nx),
-            np.linspace(extent[2], extent[3], ny),
-        )
-        if(False):
-            plt.contour(X, Y, wfront.T[::-1], **wkwargs)  # Negative contours default to dashed.
-        else:
-            plt.contour(X, Y, wfront.T, **wkwargs)  # Negative contours default to dashed.
-
-    if wfront is None and cbar:
-        plt.colorbar(shrink=cbarshrink)
-
-    if points is not None:
-        plt.plot(points[:, 0], points[:, 1], 'bo',markersize=points_size)
-
-    if(reversedepth):
-        plt.xlim(extent[0],extent[1])
-        plt.ylim(extent[3],extent[2])
-    else:
-        plt.xlim(extent[0],extent[1])
-        plt.ylim(extent[2],extent[3])
-    
-    if filename is not None:
-        plt.savefig(filename)
-
-    plt.show()
 
 def display_model(
     model,
@@ -979,7 +854,6 @@ def display_model(
     alpha=1.0,
     points=None,
     wfront=None,
-    cwfront="k",
     diced=True,
     dicex=8,
     dicey=8,
@@ -987,144 +861,96 @@ def display_model(
     cbar=True,
     filename=None,
     reversedepth=False,
-    points_size = 1.0,
-    aspect = None,
-    ax=None,  # <-- NEW: Optional Axes object
+    points_size=1.0,
+    aspect=None,
+    ax=None,
     **wkwargs,
 ):
     """
-    Function to plot 2D velocity or slowness field.
-    Can plot onto an existing axis if 'ax' is provided.
+    Plot 2D velocity or slowness field.
 
-    Inputs:
-        model, ndarray(nx,ny)          : 2D velocity or slowness field on rectangular grid
-        paths, string                  : ...
-        ax, matplotlib.axes.Axes       : Optional axis object to plot onto.
+    Args:
+        model: 2D velocity or slowness field on rectangular grid (nx, ny)
+        paths: Ray paths to overlay on the model
+        extent: Model extent [xmin, xmax, ymin, ymax]
+        ax: Optional matplotlib axis object to plot onto
     """
-
-    # --- Setup Figure and Axes ---
-    if ax is None:
-        # If no axis is provided, create a new figure and axis
+    created_ax = ax is None
+    if created_ax:
         fig, ax = plt.subplots(figsize=figsize)
     else:
-        # If an axis is provided, make sure we don't call plt.figure() or plt.show()
-        fig = ax.figure # Retain a reference to the figure if needed later
+        fig = ax.figure
 
     if cmap is None:
         cmap = plt.cm.RdBu
 
-    # --- Prepare Data ---
-    plotmodel = model
-    if diced:
-        plotmodel = create_diced_grid(model, extent=extent, dicex=dicex, dicey=dicey)
+    plotmodel = create_diced_grid(model, extent=extent, dicex=dicex, dicey=dicey) if diced else model
 
-    # --- Plot Image (imshow) ---
     if reversedepth:
         extentr = [extent[0], extent[1], extent[3], extent[2]]
-        # Use ax.imshow() instead of plt.imshow()
-        im = ax.imshow(
-            plotmodel.T, origin="upper", extent=extentr, aspect=aspect, cmap=cmap
-        )
+        im = ax.imshow(plotmodel.T, origin="upper", extent=extentr, aspect=aspect, cmap=cmap)
     else:
-        # Use ax.imshow() instead of plt.imshow()
-        im = ax.imshow(
-            plotmodel.T, origin="lower", extent=extent, aspect=aspect, cmap=cmap
-        )
+        im = ax.imshow(plotmodel.T, origin="lower", extent=extent, aspect=aspect, cmap=cmap)
 
-    # --- Plot Paths (plot) ---
     if paths is not None:
-        if isinstance(paths, np.ndarray) and paths.ndim == 2:
-            if paths.shape[1] == 4:  # we have paths from xrt.tracer so adjust
-                paths = change_paths_format(paths)
+        if isinstance(paths, np.ndarray) and paths.ndim == 2 and paths.shape[1] == 4:
+            paths = change_paths_format(paths)
 
-        for i in range(len(paths)):
-            p = paths[i]
-            if type(cline) is list:
-                cl = cline[i]
-            else:
-                cl = cline
-            if type(line) is list:
-                lw = line[i]
-            else:
-                lw = line
-            # Use ax.plot() instead of plt.plot()
+        for i, p in enumerate(paths):
+            cl = cline[i] if isinstance(cline, list) else cline
+            lw = line[i] if isinstance(line, list) else line
             ax.plot(p[:, 0], p[:, 1], cl, lw=lw, alpha=alpha)
 
-    # --- Set Color Limits (clim) ---
     if clim is not None:
-        # We can set the clim directly on the image object (im)
         im.set_clim(clim)
 
-    # --- Set Title (title) ---
     if title is not None:
-        # Use ax.set_title() instead of plt.title()
         ax.set_title(title)
 
-    # --- Plot Wavefronts (contour) ---
     if wfront is not None:
         nx, ny = wfront.shape
         X, Y = np.meshgrid(
             np.linspace(extent[0], extent[1], nx),
             np.linspace(extent[2], extent[3], ny),
         )
-        # Use ax.contour() instead of plt.contour()
-        if False: # Retaining original conditional for contour
-             ax.contour(X, Y, wfront.T[::-1], **wkwargs)
-        else:
-             ax.contour(X, Y, wfront.T, **wkwargs)
+        ax.contour(X, Y, wfront.T, **wkwargs)
 
-    # --- Add Colorbar (colorbar) ---
     if wfront is None and cbar:
-        # Use fig.colorbar() and pass the image (im) and axis (ax)
         fig.colorbar(im, ax=ax, shrink=cbarshrink)
 
-    # --- Plot Points (plot) ---
     if points is not None:
-        # Use ax.plot() instead of plt.plot()
         ax.plot(points[:, 0], points[:, 1], 'bo', markersize=points_size)
 
-    # --- Set Axis Limits (xlim/ylim) ---
+    ax.set_xlim(extent[0], extent[1])
     if reversedepth:
-        # Use ax.set_xlim() and ax.set_ylim()
-        ax.set_xlim(extent[0], extent[1])
         ax.set_ylim(extent[3], extent[2])
     else:
-        # Use ax.set_xlim() and ax.set_ylim()
-        ax.set_xlim(extent[0], extent[1])
         ax.set_ylim(extent[2], extent[3])
-    
-    # --- Save and Show (Only if we created the figure) ---
-    # These should only be called if we created the figure (ax is None initially)
-    if ax is fig.axes[0]: # Simple check if this is the only (first) axis on the fig
+
+    if created_ax:
         if filename is not None:
             fig.savefig(filename)
-            
-    if(ax is None): plt.show() # Only call show if we created the figure
+        plt.show()
 
-    return
-
-def create_diced_grid(v, extent=[0.0, 1.0, 0.0, 1.0], dicex=8, dicey=8):
+def create_diced_grid(v, extent=None, dicex=8, dicey=8):
+    """Create B-spline interpolated grid at higher resolution."""
+    if extent is None:
+        extent = [0.0, 1.0, 0.0, 1.0]
     nx, ny = v.shape
     x = np.linspace(extent[0], extent[1], nx)
     y = np.linspace(extent[2], extent[3], ny)
-    kx, ky = 3, 3
-    if nx <= 3:
-        kx = nx - 1  # reduce order of B-spline if we have too few velocity nodes
-    if ny <= 3:
-        ky = ny - 1
+
+    # Reduce B-spline order if too few nodes
+    kx = min(3, nx - 1)
+    ky = min(3, ny - 1)
+
     rect = RectBivariateSpline(x, y, v, kx=kx, ky=ky)
     xx = np.linspace(extent[0], extent[1], dicex * nx)
     yy = np.linspace(extent[2], extent[3], dicey * ny)
     X, Y = np.meshgrid(xx, yy, indexing="ij")
-    vinterp = rect.ev(X, Y)
-    return vinterp
+    return rect.ev(X, Y)
 
 
 def change_paths_format(paths):
-    p = np.zeros((len(paths), 2, 2))
-    for i in range(len(paths)):
-        p[i, 0, 0] = paths[i, 0]
-        p[i, 0, 1] = paths[i, 1]
-        p[i, 1, 0] = paths[i, 2]
-        p[i, 1, 1] = paths[i, 3]
-    return p
+    """Convert paths from (N, 4) format to (N, 2, 2) format."""
+    return paths.reshape(-1, 2, 2)
