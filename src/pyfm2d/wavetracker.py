@@ -14,7 +14,15 @@ from . import fastmarching as fmm
 from . import bases as base
 
 
-faulthandler.enable()
+# Enable faulthandler to provide Python-side tracebacks when the Fortran code
+# crashes (e.g. SIGSEGV). This requires stderr to support fileno(), which is not
+# the case when running under sphinx-gallery (it replaces stderr with a custom
+# capture object). We catch the error so the import succeeds during doc builds.
+# Fortran-side tracebacks from -fbacktrace are unaffected by this.
+try:
+    faulthandler.enable()
+except io.UnsupportedOperation:
+    pass
 
 # --------------------------------------------------------------------------------------------
 
