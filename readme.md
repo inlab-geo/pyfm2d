@@ -105,6 +105,20 @@ from python and get them back from an fmm instance.
 
 Running `test_wavetracker.py` illustrates how the wavetracker interface class utilizes the ctype interface to `fm2dss.f90`.
 
+## Releasing to PyPI
+
+The version is automatically derived from git tags using `setuptools-scm`. To publish a new release:
+
+1. Make sure all changes are merged into `main`.
+2. Create and push a version tag:
+   ```bash
+   git tag v0.2.0
+   git push origin v0.2.0
+   ```
+3. The [build_and_deploy](/.github/workflows/build_and_deploy.yaml) GitHub Actions workflow will automatically build and publish the package to PyPI.
+
+Tag names must start with `v` (e.g. `v0.2.0`, `v1.0.0a1`). The version in the published package is derived from the tag, so no manual version bumps are needed.
+
 ## Licensing
 `pyfm2d` is released as BSD-2-Clause licence
 
