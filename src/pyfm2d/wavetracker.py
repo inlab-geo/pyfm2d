@@ -407,11 +407,23 @@ def _get_frechet_derivatives(cartesian, velocityderiv, velocity):
     frechetvals = fmm.get_frechet_derivatives()
     nx, ny = velocity.shape
 
-    # Remove cushion nodes and reshape
-    F = frechetvals.toarray()
+    # Reshape onto the padded (cushion) grid used internally by the Fortran solver.
+    F = frechetvals.toarray().reshape((-1, nx + 2, ny + 2))
     nrays = F.shape[0]
-    noncushion = _build_grid_noncushion_map(nx, ny)
-    F = F[:, noncushion.flatten()].reshape((nrays, nx, ny))
+
+    # Fold cushion-node derivatives back onto the adjacent boundary nodes.
+    # The cushion nodes simply duplicate the boundary velocity (see
+    # _build_velocity_grid), so any Frechet sensitivity assigned to them
+    # physically belongs to the neighbouring boundary node. Cropping them away
+    # (as was done previously) discards that weight and under-counts the
+    # derivative for rays that run along the model boundary. Folding rows first
+    # and then columns also routes the corner cushion nodes to the correct
+    # interior corner.
+    F[:, 1, :] += F[:, 0, :]
+    F[:, nx, :] += F[:, nx + 1, :]
+    F[:, :, 1] += F[:, :, 0]
+    F[:, :, ny] += F[:, :, ny + 1]
+    F = F[:, 1:nx + 1, 1:ny + 1]
 
     # For Spherical mode: reverse y order for consistency with ttfield array
     if not cartesian:
@@ -454,13 +466,6 @@ def _build_velocity_grid(v):
     vc[0, 0], vc[0, -1], vc[-1, 0], vc[-1, -1] = v[0, 0], v[0, -1], v[-1, 0], v[-1, -1]
 
     return vc
-
-
-def _build_grid_noncushion_map(nx, ny):
-    """Create boolean array identifying non-cushion nodes."""
-    noncushion = np.zeros((nx + 2, ny + 2), dtype=bool)
-    noncushion[1:nx + 1, 1:ny + 1] = True
-    return noncushion
 
 
 def _build_node_map(nx, ny):

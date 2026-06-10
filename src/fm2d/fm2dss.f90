@@ -1854,7 +1854,7 @@ CONTAINS
 !     Test whether ray path segment extends beyond
 !     box boundaries
 !
-            IF (ipx .LT. 1) THEN
+            IF (rgx(j + 1) .LT. gox) THEN
                rgx(j + 1) = gox
                ipx = 1
                rbint = 1
@@ -1864,7 +1864,7 @@ CONTAINS
                ipx = nnx - 1
                rbint = 1
             END IF
-            IF (ipz .LT. 1) THEN
+            IF (rgz(j + 1) .LT. goz) THEN
                rgz(j + 1) = goz
                ipz = 1
                rbint = 1
@@ -2936,7 +2936,7 @@ CONTAINS
 !     Test whether ray path segment extends beyond
 !     box boundaries
 !
-            IF (ipx .LT. 1) THEN
+            IF (rgx(j + 1) .LT. gox) THEN
                rgx(j + 1) = gox
                ipx = 1
                rbint = 1
@@ -2946,7 +2946,7 @@ CONTAINS
                ipx = nnx - 1
                rbint = 1
             END IF
-            IF (ipz .LT. 1) THEN
+            IF (rgz(j + 1) .LT. goz) THEN
                rgz(j + 1) = goz
                ipz = 1
                rbint = 1
@@ -3511,7 +3511,7 @@ CONTAINS
 !     Test whether ray path segment extends beyond
 !     box boundaries
 !
-            IF (ipx .LT. 1) THEN
+            IF (rgx(j + 1) .LT. gox) THEN
                rgx(j + 1) = gox
                ipx = 1
                rbint = 1
@@ -3521,7 +3521,7 @@ CONTAINS
                ipx = nnx - 1
                rbint = 1
             END IF
-            IF (ipz .LT. 1) THEN
+            IF (rgz(j + 1) .LT. goz) THEN
                rgz(j + 1) = goz
                ipz = 1
                rbint = 1
