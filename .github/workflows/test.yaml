@@ -18,7 +18,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup GNU Fortran
         uses: fortran-lang/setup-fortran@v1
